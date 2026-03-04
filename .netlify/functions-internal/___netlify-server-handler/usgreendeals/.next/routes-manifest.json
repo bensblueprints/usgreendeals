@@ -53,10 +53,34 @@
       "namedRegex": "^/api/admin(?:/)?$"
     },
     {
+      "page": "/api/clients",
+      "regex": "^/api/clients(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/clients(?:/)?$"
+    },
+    {
       "page": "/api/deals",
       "regex": "^/api/deals(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/deals(?:/)?$"
+    },
+    {
+      "page": "/api/debug",
+      "regex": "^/api/debug(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug(?:/)?$"
+    },
+    {
+      "page": "/api/images",
+      "regex": "^/api/images(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/images(?:/)?$"
+    },
+    {
+      "page": "/api/landing-pages",
+      "regex": "^/api/landing\\-pages(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/landing\\-pages(?:/)?$"
     },
     {
       "page": "/api/settings",

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSubscribers } from '@/lib/storage';
+import { getSubscribers, deleteSubscriber } from '@/lib/storage';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,6 +16,33 @@ export async function GET(request: NextRequest) {
     console.error('Get subscribers error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch subscribers' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    // Check admin auth
+    const authHeader = request.headers.get('Authorization');
+    if (authHeader !== `Bearer ${process.env.ADMIN_PASSWORD}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Subscriber ID required' }, { status: 400 });
+    }
+
+    await deleteSubscriber(id);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Delete subscriber error:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete subscriber' },
       { status: 500 }
     );
   }

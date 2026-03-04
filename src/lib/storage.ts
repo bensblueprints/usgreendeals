@@ -4,11 +4,46 @@ import { supabaseAdmin } from './supabase';
 export interface Subscriber {
   id: string;
   email: string;
+  first_name: string | null;
   zip_code: string;
   created_at: string;
   source: string;
   synced_klaviyo: boolean;
   synced_ghl: boolean;
+  landing_page_id?: string;
+}
+
+export interface LandingPage {
+  id: string;
+  name: string;
+  slug: string;
+  background_image: string | null;
+  background_color: string;
+  headline: string;
+  subheadline: string;
+  button_text: string;
+  theme: 'light' | 'dark';
+  custom_css: string | null;
+  active: boolean;
+  traffic_weight: number;
+  views: number;
+  conversions: number;
+  collect_first_name: boolean;
+  is_homepage: boolean;
+  client_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  slug: string;
+  klaviyo_api_key: string | null;
+  klaviyo_list_id: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Deal {
@@ -47,7 +82,7 @@ export async function getSubscribers(): Promise<Subscriber[]> {
   return data || [];
 }
 
-export async function addSubscriber(email: string, source: string = 'landing', zipCode: string = ''): Promise<Subscriber | null> {
+export async function addSubscriber(email: string, source: string = 'landing', zipCode: string = '', firstName: string = ''): Promise<Subscriber | null> {
   // Check if already exists
   const { data: existing } = await supabaseAdmin
     .from('subscribers')
@@ -56,13 +91,18 @@ export async function addSubscriber(email: string, source: string = 'landing', z
     .single();
 
   if (existing) {
-    // Update zip code if not set
-    if (!existing.zip_code && zipCode) {
+    // Update zip code and first name if not set
+    const updates: Record<string, string> = {};
+    if (!existing.zip_code && zipCode) updates.zip_code = zipCode;
+    if (!existing.first_name && firstName) updates.first_name = firstName;
+
+    if (Object.keys(updates).length > 0) {
       await supabaseAdmin
         .from('subscribers')
-        .update({ zip_code: zipCode })
+        .update(updates)
         .eq('id', existing.id);
-      existing.zip_code = zipCode;
+      if (updates.zip_code) existing.zip_code = updates.zip_code;
+      if (updates.first_name) existing.first_name = updates.first_name;
     }
     return existing;
   }
@@ -71,6 +111,7 @@ export async function addSubscriber(email: string, source: string = 'landing', z
     .from('subscribers')
     .insert({
       email: email.toLowerCase(),
+      first_name: firstName || null,
       zip_code: zipCode,
       source,
       synced_klaviyo: false,
@@ -97,6 +138,13 @@ export async function updateSubscriberSync(
   await supabaseAdmin
     .from('subscribers')
     .update({ [field]: synced })
+    .eq('id', id);
+}
+
+export async function deleteSubscriber(id: string): Promise<void> {
+  await supabaseAdmin
+    .from('subscribers')
+    .delete()
     .eq('id', id);
 }
 
@@ -233,6 +281,8 @@ export async function syncToKlaviyo(subscriber: Subscriber): Promise<boolean> {
     return false;
   }
 
+  console.log('Syncing to Klaviyo:', { email: subscriber.email, first_name: subscriber.first_name || 'none' });
+
   try {
     const response = await fetch('https://a.klaviyo.com/api/profile-subscription-bulk-create-jobs/', {
       method: 'POST',
@@ -251,9 +301,7 @@ export async function syncToKlaviyo(subscriber: Subscriber): Promise<boolean> {
                   type: 'profile',
                   attributes: {
                     email: subscriber.email,
-                    location: {
-                      zip: subscriber.zip_code,
-                    },
+                    ...(subscriber.first_name?.trim() && { first_name: subscriber.first_name.trim() }),
                     subscriptions: {
                       email: {
                         marketing: {
@@ -265,7 +313,6 @@ export async function syncToKlaviyo(subscriber: Subscriber): Promise<boolean> {
                 },
               ],
             },
-            historical_import: false,
           },
           relationships: {
             list: {
@@ -323,6 +370,376 @@ export async function syncToGHL(subscriber: Subscriber): Promise<boolean> {
     return false;
   } catch (error) {
     console.error('GHL sync error:', error);
+    return false;
+  }
+}
+
+// Landing Pages for A/B Testing
+export async function getLandingPages(): Promise<LandingPage[]> {
+  const { data, error } = await supabaseAdmin
+    .from('landing_pages')
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching landing pages:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getActiveLandingPages(): Promise<LandingPage[]> {
+  const { data, error } = await supabaseAdmin
+    .from('landing_pages')
+    .select('*')
+    .eq('active', true)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching active landing pages:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getLandingPageBySlug(slug: string): Promise<LandingPage | null> {
+  const { data, error } = await supabaseAdmin
+    .from('landing_pages')
+    .select('*')
+    .eq('slug', slug)
+    .single();
+
+  if (error) {
+    console.error('Error fetching landing page:', error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function getLandingPageById(id: string): Promise<LandingPage | null> {
+  const { data, error } = await supabaseAdmin
+    .from('landing_pages')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Error fetching landing page:', error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function saveLandingPage(page: Partial<LandingPage> & { id?: string }): Promise<LandingPage | null> {
+  if (page.id) {
+    // Update existing
+    const { data, error } = await supabaseAdmin
+      .from('landing_pages')
+      .update({
+        name: page.name,
+        slug: page.slug,
+        background_image: page.background_image,
+        background_color: page.background_color,
+        headline: page.headline,
+        subheadline: page.subheadline,
+        button_text: page.button_text,
+        theme: page.theme,
+        custom_css: page.custom_css,
+        active: page.active,
+        traffic_weight: page.traffic_weight,
+        collect_first_name: page.collect_first_name ?? false,
+        client_id: page.client_id || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', page.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating landing page:', error);
+      return null;
+    }
+
+    return data;
+  }
+
+  // Create new
+  const { data, error } = await supabaseAdmin
+    .from('landing_pages')
+    .insert({
+      name: page.name,
+      slug: page.slug,
+      background_image: page.background_image || null,
+      background_color: page.background_color || '#1a1a2e',
+      headline: page.headline || 'Exclusive Green Lifestyle Deals',
+      subheadline: page.subheadline || 'Join our exclusive list for premium wellness deals.',
+      button_text: page.button_text || 'Get Exclusive Deals',
+      theme: page.theme || 'light',
+      custom_css: page.custom_css || null,
+      active: page.active ?? true,
+      traffic_weight: page.traffic_weight ?? 50,
+      collect_first_name: page.collect_first_name ?? false,
+      is_homepage: page.is_homepage ?? false,
+      client_id: page.client_id || null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating landing page:', error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function deleteLandingPage(id: string): Promise<void> {
+  await supabaseAdmin
+    .from('landing_pages')
+    .delete()
+    .eq('id', id);
+}
+
+export async function incrementLandingPageViews(id: string): Promise<void> {
+  await supabaseAdmin.rpc('increment_landing_page_views', { page_id: id });
+}
+
+export async function incrementLandingPageConversions(id: string): Promise<void> {
+  await supabaseAdmin.rpc('increment_landing_page_conversions', { page_id: id });
+}
+
+// Fallback increment functions if RPC doesn't exist
+export async function incrementViewsDirectly(id: string): Promise<void> {
+  const { data } = await supabaseAdmin
+    .from('landing_pages')
+    .select('views')
+    .eq('id', id)
+    .single();
+
+  if (data) {
+    await supabaseAdmin
+      .from('landing_pages')
+      .update({ views: (data.views || 0) + 1 })
+      .eq('id', id);
+  }
+}
+
+export async function incrementConversionsDirectly(id: string): Promise<void> {
+  const { data } = await supabaseAdmin
+    .from('landing_pages')
+    .select('conversions')
+    .eq('id', id)
+    .single();
+
+  if (data) {
+    await supabaseAdmin
+      .from('landing_pages')
+      .update({ conversions: (data.conversions || 0) + 1 })
+      .eq('id', id);
+  }
+}
+
+// Select a random landing page based on traffic weights
+export async function selectRandomLandingPage(): Promise<LandingPage | null> {
+  const pages = await getActiveLandingPages();
+  if (pages.length === 0) return null;
+  if (pages.length === 1) return pages[0];
+
+  // Calculate total weight
+  const totalWeight = pages.reduce((sum, page) => sum + (page.traffic_weight || 0), 0);
+  if (totalWeight === 0) return pages[0];
+
+  // Random selection based on weight
+  let random = Math.random() * totalWeight;
+  for (const page of pages) {
+    random -= page.traffic_weight || 0;
+    if (random <= 0) return page;
+  }
+
+  return pages[0];
+}
+
+// Get landing page stats
+export async function getLandingPageStats(): Promise<{ total_views: number; total_conversions: number; pages: LandingPage[] }> {
+  const pages = await getLandingPages();
+  const total_views = pages.reduce((sum, p) => sum + (p.views || 0), 0);
+  const total_conversions = pages.reduce((sum, p) => sum + (p.conversions || 0), 0);
+
+  return { total_views, total_conversions, pages };
+}
+
+// Set a landing page as homepage (unset others)
+export async function setHomepage(id: string): Promise<void> {
+  // First, unset all homepages
+  await supabaseAdmin
+    .from('landing_pages')
+    .update({ is_homepage: false })
+    .eq('is_homepage', true);
+
+  // Set the new homepage
+  await supabaseAdmin
+    .from('landing_pages')
+    .update({ is_homepage: true })
+    .eq('id', id);
+}
+
+// Get the homepage landing page
+export async function getHomepage(): Promise<LandingPage | null> {
+  const { data, error } = await supabaseAdmin
+    .from('landing_pages')
+    .select('*')
+    .eq('is_homepage', true)
+    .single();
+
+  if (error) {
+    return null;
+  }
+
+  return data;
+}
+
+// Clients CRUD
+export async function getClients(): Promise<Client[]> {
+  const { data, error } = await supabaseAdmin
+    .from('clients')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching clients:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getClientById(id: string): Promise<Client | null> {
+  const { data, error } = await supabaseAdmin
+    .from('clients')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Error fetching client:', error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function saveClient(client: Partial<Client> & { id?: string }): Promise<Client | null> {
+  if (client.id) {
+    const { data, error } = await supabaseAdmin
+      .from('clients')
+      .update({
+        name: client.name,
+        slug: client.slug,
+        klaviyo_api_key: client.klaviyo_api_key,
+        klaviyo_list_id: client.klaviyo_list_id,
+        active: client.active,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', client.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating client:', error);
+      return null;
+    }
+
+    return data;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('clients')
+    .insert({
+      name: client.name,
+      slug: client.slug,
+      klaviyo_api_key: client.klaviyo_api_key || null,
+      klaviyo_list_id: client.klaviyo_list_id || null,
+      active: client.active ?? true,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating client:', error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function deleteClient(id: string): Promise<void> {
+  await supabaseAdmin
+    .from('clients')
+    .delete()
+    .eq('id', id);
+}
+
+// Sync to client-specific Klaviyo
+export async function syncToClientKlaviyo(subscriber: Subscriber, client: Client): Promise<boolean> {
+  if (!client.klaviyo_api_key || !client.klaviyo_list_id) {
+    console.log('Client Klaviyo not configured');
+    return false;
+  }
+
+  try {
+    const response = await fetch('https://a.klaviyo.com/api/profile-subscription-bulk-create-jobs/', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Klaviyo-API-Key ${client.klaviyo_api_key}`,
+        'Content-Type': 'application/json',
+        'revision': '2024-02-15',
+      },
+      body: JSON.stringify({
+        data: {
+          type: 'profile-subscription-bulk-create-job',
+          attributes: {
+            profiles: {
+              data: [
+                {
+                  type: 'profile',
+                  attributes: {
+                    email: subscriber.email,
+                    ...(subscriber.first_name?.trim() && { first_name: subscriber.first_name.trim() }),
+                    subscriptions: {
+                      email: {
+                        marketing: {
+                          consent: 'SUBSCRIBED',
+                        },
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          },
+          relationships: {
+            list: {
+              data: {
+                type: 'list',
+                id: client.klaviyo_list_id,
+              },
+            },
+          },
+        },
+      }),
+    });
+
+    if (response.ok || response.status === 202) {
+      return true;
+    }
+    console.error('Client Klaviyo sync failed:', await response.text());
+    return false;
+  } catch (error) {
+    console.error('Client Klaviyo sync error:', error);
     return false;
   }
 }
