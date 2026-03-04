@@ -15,10 +15,13 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 export interface Subscriber {
   id: string;
   email: string;
+  first_name: string | null;
+  zip_code: string | null;
   created_at: string;
   source: string;
   synced_klaviyo: boolean;
   synced_ghl: boolean;
+  landing_page_id?: string;
 }
 
 export interface Deal {

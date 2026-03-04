@@ -25,9 +25,12 @@ interface LocationData {
 function ThankYouContent() {
   const searchParams = useSearchParams();
   const zipCode = searchParams.get('zip');
+  const subscriberId = searchParams.get('sid');
+  const landingPageId = searchParams.get('lpid');
   const [location, setLocation] = useState<LocationData | null>(null);
   const [loading, setLoading] = useState(true);
   const hasTracked = useRef(false);
+  const hasSynced = useRef(false);
 
   // Track signup conversion in Google Analytics (only once)
   useEffect(() => {
@@ -40,6 +43,36 @@ function ThankYouContent() {
       hasTracked.current = true;
     }
   }, [zipCode]);
+
+  // Trigger Klaviyo sync after 20 seconds (delayed to ensure database write completes)
+  useEffect(() => {
+    if (!hasSynced.current && subscriberId && landingPageId) {
+      const syncTimer = setTimeout(async () => {
+        if (hasSynced.current) return;
+        hasSynced.current = true;
+
+        try {
+          console.log('Triggering delayed Klaviyo sync...');
+          const response = await fetch('/api/klaviyo/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscriberId, landingPageId }),
+          });
+
+          const data = await response.json();
+          if (response.ok) {
+            console.log('Klaviyo sync successful:', data);
+          } else {
+            console.error('Klaviyo sync failed:', data);
+          }
+        } catch (error) {
+          console.error('Klaviyo sync error:', error);
+        }
+      }, 20000); // 20 second delay
+
+      return () => clearTimeout(syncTimer);
+    }
+  }, [subscriberId, landingPageId]);
 
   useEffect(() => {
     if (zipCode) {

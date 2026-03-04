@@ -11,6 +11,21 @@ export interface Subscriber {
   synced_klaviyo: boolean;
   synced_ghl: boolean;
   landing_page_id?: string;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_term?: string | null;
+  utm_content?: string | null;
+  referrer?: string | null;
+}
+
+export interface UTMParams {
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
+  referrer?: string;
 }
 
 export interface LandingPage {
@@ -84,7 +99,13 @@ export async function getSubscribers(): Promise<Subscriber[]> {
   return data || [];
 }
 
-export async function addSubscriber(email: string, source: string = 'landing', zipCode: string = '', firstName: string = ''): Promise<Subscriber | null> {
+export async function addSubscriber(
+  email: string,
+  source: string = 'landing',
+  zipCode: string = '',
+  firstName: string = '',
+  utmParams?: UTMParams
+): Promise<Subscriber | null> {
   // Check if already exists
   const { data: existing } = await supabaseAdmin
     .from('subscribers')
@@ -93,18 +114,26 @@ export async function addSubscriber(email: string, source: string = 'landing', z
     .single();
 
   if (existing) {
-    // Update zip code and first name if not set
-    const updates: Record<string, string> = {};
+    // Update zip code, first name, and UTM if not set
+    const updates: Record<string, string | null> = {};
     if (!existing.zip_code && zipCode) updates.zip_code = zipCode;
     if (!existing.first_name && firstName) updates.first_name = firstName;
+    // Update UTM params if not already set
+    if (utmParams) {
+      if (!existing.utm_source && utmParams.utm_source) updates.utm_source = utmParams.utm_source;
+      if (!existing.utm_medium && utmParams.utm_medium) updates.utm_medium = utmParams.utm_medium;
+      if (!existing.utm_campaign && utmParams.utm_campaign) updates.utm_campaign = utmParams.utm_campaign;
+      if (!existing.utm_term && utmParams.utm_term) updates.utm_term = utmParams.utm_term;
+      if (!existing.utm_content && utmParams.utm_content) updates.utm_content = utmParams.utm_content;
+      if (!existing.referrer && utmParams.referrer) updates.referrer = utmParams.referrer;
+    }
 
     if (Object.keys(updates).length > 0) {
       await supabaseAdmin
         .from('subscribers')
         .update(updates)
         .eq('id', existing.id);
-      if (updates.zip_code) existing.zip_code = updates.zip_code;
-      if (updates.first_name) existing.first_name = updates.first_name;
+      Object.assign(existing, updates);
     }
     return existing;
   }
@@ -118,6 +147,12 @@ export async function addSubscriber(email: string, source: string = 'landing', z
       source,
       synced_klaviyo: false,
       synced_ghl: false,
+      utm_source: utmParams?.utm_source || null,
+      utm_medium: utmParams?.utm_medium || null,
+      utm_campaign: utmParams?.utm_campaign || null,
+      utm_term: utmParams?.utm_term || null,
+      utm_content: utmParams?.utm_content || null,
+      referrer: utmParams?.referrer || null,
     })
     .select()
     .single();
@@ -508,6 +543,13 @@ export async function deleteLandingPage(id: string): Promise<void> {
     .eq('id', id);
 }
 
+export async function resetLandingPageStats(id: string): Promise<void> {
+  await supabaseAdmin
+    .from('landing_pages')
+    .update({ views: 0, conversions: 0 })
+    .eq('id', id);
+}
+
 export async function incrementLandingPageViews(id: string): Promise<void> {
   await supabaseAdmin.rpc('increment_landing_page_views', { page_id: id });
 }
@@ -807,53 +849,143 @@ export async function syncToClientKlaviyo(subscriber: Subscriber, client: Client
     return false;
   }
 
+  console.log('=== KLAVIYO API CALL ===');
+  console.log('Subscriber data:', {
+    email: subscriber.email,
+    first_name: subscriber.first_name,
+    zip_code: subscriber.zip_code,
+  });
+  console.log('Target list:', targetListId);
+
   try {
-    const response = await fetch('https://a.klaviyo.com/api/profile-subscription-bulk-create-jobs/', {
+    // Step 1: Create/update the profile with full data using Profiles API
+    const profilePayload = {
+      data: {
+        type: 'profile',
+        attributes: {
+          email: subscriber.email,
+          ...(subscriber.first_name?.trim() && { first_name: subscriber.first_name.trim() }),
+          ...(subscriber.zip_code && {
+            location: {
+              zip: subscriber.zip_code,
+            }
+          }),
+        },
+      },
+    };
+
+    console.log('Creating/updating profile...');
+    const profileResponse = await fetch('https://a.klaviyo.com/api/profiles/', {
       method: 'POST',
       headers: {
         'Authorization': `Klaviyo-API-Key ${client.klaviyo_api_key}`,
         'Content-Type': 'application/json',
         'revision': '2024-02-15',
       },
-      body: JSON.stringify({
-        data: {
-          type: 'profile-subscription-bulk-create-job',
-          attributes: {
-            profiles: {
-              data: [
-                {
-                  type: 'profile',
-                  attributes: {
-                    email: subscriber.email,
-                    ...(subscriber.first_name?.trim() && { first_name: subscriber.first_name.trim() }),
-                    subscriptions: {
-                      email: {
-                        marketing: {
-                          consent: 'SUBSCRIBED',
-                        },
+      body: JSON.stringify(profilePayload),
+    });
+
+    let profileId: string | null = null;
+    const profileText = await profileResponse.text();
+    console.log('Profile response status:', profileResponse.status);
+
+    if (profileResponse.status === 201) {
+      // Profile created
+      const profileData = JSON.parse(profileText);
+      profileId = profileData.data?.id;
+      console.log('Profile created with ID:', profileId);
+    } else if (profileResponse.status === 409) {
+      // Profile exists - get the ID from the error
+      const conflictData = JSON.parse(profileText);
+      profileId = conflictData.errors?.[0]?.meta?.duplicate_profile_id;
+      console.log('Profile exists with ID:', profileId);
+
+      // Update the existing profile with name/zip if we have them
+      if (profileId && (subscriber.first_name?.trim() || subscriber.zip_code)) {
+        const updatePayload = {
+          data: {
+            type: 'profile',
+            id: profileId,
+            attributes: {
+              ...(subscriber.first_name?.trim() && { first_name: subscriber.first_name.trim() }),
+              ...(subscriber.zip_code && {
+                location: {
+                  zip: subscriber.zip_code,
+                }
+              }),
+            },
+          },
+        };
+
+        console.log('Updating existing profile...');
+        await fetch(`https://a.klaviyo.com/api/profiles/${profileId}/`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Klaviyo-API-Key ${client.klaviyo_api_key}`,
+            'Content-Type': 'application/json',
+            'revision': '2024-02-15',
+          },
+          body: JSON.stringify(updatePayload),
+        });
+      }
+    } else {
+      console.error('Profile creation failed:', profileText);
+    }
+
+    // Step 2: Subscribe the profile to the list
+    const subscribePayload = {
+      data: {
+        type: 'profile-subscription-bulk-create-job',
+        attributes: {
+          profiles: {
+            data: [
+              {
+                type: 'profile',
+                attributes: {
+                  email: subscriber.email,
+                  subscriptions: {
+                    email: {
+                      marketing: {
+                        consent: 'SUBSCRIBED',
                       },
                     },
                   },
                 },
-              ],
-            },
-          },
-          relationships: {
-            list: {
-              data: {
-                type: 'list',
-                id: targetListId,
               },
+            ],
+          },
+        },
+        relationships: {
+          list: {
+            data: {
+              type: 'list',
+              id: targetListId,
             },
           },
         },
-      }),
+      },
+    };
+
+    console.log('Subscribing to list...');
+    const subscribeResponse = await fetch('https://a.klaviyo.com/api/profile-subscription-bulk-create-jobs/', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Klaviyo-API-Key ${client.klaviyo_api_key}`,
+        'Content-Type': 'application/json',
+        'revision': '2024-02-15',
+      },
+      body: JSON.stringify(subscribePayload),
     });
 
-    if (response.ok || response.status === 202) {
+    const subscribeText = await subscribeResponse.text();
+    console.log('Subscribe response status:', subscribeResponse.status);
+    console.log('Subscribe response:', subscribeText);
+
+    if (subscribeResponse.ok || subscribeResponse.status === 202) {
+      console.log('=== KLAVIYO SYNC SUCCESS ===');
       return true;
     }
-    console.error('Client Klaviyo sync failed:', await response.text());
+    console.error('Client Klaviyo sync failed:', subscribeText);
     return false;
   } catch (error) {
     console.error('Client Klaviyo sync error:', error);

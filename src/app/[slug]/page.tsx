@@ -32,6 +32,15 @@ interface LandingPage {
   klaviyo_list_id: string | null;
 }
 
+interface UTMData {
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
+  referrer?: string;
+}
+
 export default function SlugLandingPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -45,9 +54,22 @@ export default function SlugLandingPage() {
   const [landingPage, setLandingPage] = useState<LandingPage | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [utmData, setUtmData] = useState<UTMData>({});
 
   useEffect(() => {
     setMounted(true);
+    // Capture UTM params from URL
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      setUtmData({
+        utm_source: urlParams.get('utm_source') || undefined,
+        utm_medium: urlParams.get('utm_medium') || undefined,
+        utm_campaign: urlParams.get('utm_campaign') || undefined,
+        utm_term: urlParams.get('utm_term') || undefined,
+        utm_content: urlParams.get('utm_content') || undefined,
+        referrer: document.referrer || undefined,
+      });
+    }
     if (slug) {
       fetch(`/api/landing-pages?action=by-slug&slug=${encodeURIComponent(slug)}`)
         .then(res => res.json())
@@ -102,7 +124,8 @@ export default function SlugLandingPage() {
           email,
           firstName: landingPage?.collect_first_name ? firstName : '',
           zipCode,
-          landingPageId: landingPage?.id
+          landingPageId: landingPage?.id,
+          ...utmData,
         }),
       });
 
@@ -122,7 +145,13 @@ export default function SlugLandingPage() {
         });
       }
 
-      window.location.href = `/thank-you?zip=${zipCode}`;
+      // Redirect with subscriber ID and landing page ID for delayed Klaviyo sync
+      const params = new URLSearchParams({
+        zip: zipCode,
+        ...(data.subscriberId && { sid: data.subscriberId }),
+        ...(data.landingPageId && { lpid: data.landingPageId }),
+      });
+      window.location.href = `/thank-you?${params.toString()}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to subscribe');
       setIsLoading(false);

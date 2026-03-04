@@ -9,7 +9,8 @@ import {
   incrementViewsDirectly,
   getLandingPageStats,
   setHomepage,
-  getHomepage
+  getHomepage,
+  resetLandingPageStats
 } from '@/lib/storage';
 
 export async function GET(request: NextRequest) {
@@ -72,6 +73,11 @@ export async function PUT(request: NextRequest) {
 
     if (action === 'set-homepage' && id) {
       await setHomepage(id);
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'reset-stats' && id) {
+      await resetLandingPageStats(id);
       return NextResponse.json({ success: true });
     }
 

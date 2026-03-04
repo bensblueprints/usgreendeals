@@ -29,6 +29,15 @@ interface LandingPage {
   collect_first_name: boolean;
 }
 
+interface UTMData {
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
+  referrer?: string;
+}
+
 export default function LandingPage() {
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -38,9 +47,22 @@ export default function LandingPage() {
   const [mounted, setMounted] = useState(false);
   const [landingPage, setLandingPage] = useState<LandingPage | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
+  const [utmData, setUtmData] = useState<UTMData>({});
 
   useEffect(() => {
     setMounted(true);
+    // Capture UTM params from URL
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      setUtmData({
+        utm_source: params.get('utm_source') || undefined,
+        utm_medium: params.get('utm_medium') || undefined,
+        utm_campaign: params.get('utm_campaign') || undefined,
+        utm_term: params.get('utm_term') || undefined,
+        utm_content: params.get('utm_content') || undefined,
+        referrer: document.referrer || undefined,
+      });
+    }
     // First check if there's a homepage set, otherwise use random A/B testing
     fetch('/api/landing-pages?action=homepage')
       .then(res => res.json())
@@ -111,7 +133,8 @@ export default function LandingPage() {
           email,
           firstName: landingPage?.collect_first_name ? firstName : '',
           zipCode,
-          landingPageId: landingPage?.id
+          landingPageId: landingPage?.id,
+          ...utmData,
         }),
       });
 
@@ -131,8 +154,13 @@ export default function LandingPage() {
         });
       }
 
-      // Redirect to thank you page with zip code
-      window.location.href = `/thank-you?zip=${zipCode}`;
+      // Redirect with subscriber ID and landing page ID for delayed Klaviyo sync
+      const params = new URLSearchParams({
+        zip: zipCode,
+        ...(data.subscriberId && { sid: data.subscriberId }),
+        ...(data.landingPageId && { lpid: data.landingPageId }),
+      });
+      window.location.href = `/thank-you?${params.toString()}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to subscribe');
       setIsLoading(false);

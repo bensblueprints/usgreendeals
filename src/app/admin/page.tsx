@@ -46,11 +46,17 @@ interface Deal {
 interface Subscriber {
   id: string;
   email: string;
+  first_name: string | null;
   zip_code: string;
   created_at: string;
   source: string;
   synced_klaviyo: boolean;
   synced_ghl: boolean;
+  landing_page_id: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  referrer: string | null;
 }
 
 interface SettingsData {
@@ -97,7 +103,7 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState('');
   const [authToken, setAuthToken] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'deals' | 'subscribers' | 'landing-pages' | 'clients' | 'settings'>('deals');
+  const [activeTab, setActiveTab] = useState<'deals' | 'subscribers' | 'landing-pages' | 'clients' | 'settings'>('landing-pages');
 
   // Deals state
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -106,6 +112,9 @@ export default function AdminPage() {
 
   // Subscribers state
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [syncingSubscriberId, setSyncingSubscriberId] = useState<string | null>(null);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   // Landing Pages state
   const [landingPages, setLandingPages] = useState<LandingPage[]>([]);
@@ -302,6 +311,26 @@ export default function AdminPage() {
     }
   };
 
+  const resetLandingPageStats = async (id: string) => {
+    if (!confirm('Reset views and conversions to 0 for this page?')) return;
+
+    try {
+      const response = await fetch(`/api/landing-pages?action=reset-stats&id=${id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+
+      if (response.ok) {
+        showMessage('success', 'Stats reset!');
+        loadData(authToken);
+      } else {
+        showMessage('error', 'Failed to reset stats');
+      }
+    } catch {
+      showMessage('error', 'Failed to reset stats');
+    }
+  };
+
   const saveSettings = async () => {
     setLoading(true);
     try {
@@ -362,6 +391,63 @@ export default function AdminPage() {
       showMessage('error', 'Failed to delete subscriber');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const addDebugLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugLog(prev => [`[${timestamp}] ${message}`, ...prev].slice(0, 50));
+  };
+
+  const syncSubscriberToKlaviyo = async (subscriberId: string) => {
+    setSyncingSubscriberId(subscriberId);
+    addDebugLog(`Starting sync for subscriber: ${subscriberId}`);
+    setShowDebugPanel(true);
+
+    try {
+      const response = await fetch('/api/debug/klaviyo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ subscriberId }),
+      });
+
+      const data = await response.json();
+      addDebugLog(`Response status: ${response.status}`);
+      addDebugLog(`Response: ${JSON.stringify(data, null, 2)}`);
+
+      if (response.ok && data.success) {
+        showMessage('success', `Synced to Klaviyo: ${data.details?.subscriber || 'Success'}`);
+        addDebugLog(`✅ SUCCESS: Synced ${data.details?.subscriber} to list ${data.details?.listId}`);
+        loadData(authToken);
+      } else {
+        showMessage('error', `Sync failed: ${data.error || 'Unknown error'}`);
+        addDebugLog(`❌ FAILED: ${data.error}`);
+        if (data.klaviyoError) {
+          addDebugLog(`Klaviyo Error: ${JSON.stringify(data.klaviyoError, null, 2)}`);
+        }
+        if (data.klaviyoStatus) {
+          addDebugLog(`Klaviyo Status: ${data.klaviyoStatus}`);
+        }
+      }
+    } catch (err) {
+      showMessage('error', 'Failed to sync to Klaviyo');
+      addDebugLog(`❌ EXCEPTION: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setSyncingSubscriberId(null);
+    }
+  };
+
+  const fetchDebugInfo = async () => {
+    addDebugLog('Fetching debug info...');
+    try {
+      const response = await fetch('/api/debug/klaviyo');
+      const data = await response.json();
+      addDebugLog(`Debug info: ${JSON.stringify(data, null, 2)}`);
+    } catch (err) {
+      addDebugLog(`Error fetching debug: ${err instanceof Error ? err.message : 'Unknown'}`);
     }
   };
 
@@ -697,10 +783,10 @@ export default function AdminPage() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
           {[
-            { key: 'deals', label: 'Deals', icon: Tag },
-            { key: 'subscribers', label: 'Subscribers', icon: Users },
-            { key: 'landing-pages', label: 'A/B Testing', icon: Layers },
+            { key: 'landing-pages', label: 'Landing Pages', icon: Layers },
             { key: 'clients', label: 'Clients', icon: Users },
+            { key: 'subscribers', label: 'Subscribers', icon: Users },
+            { key: 'deals', label: 'Deals', icon: Tag },
             { key: 'settings', label: 'Settings', icon: Settings },
           ].map(({ key, label, icon: Icon }) => (
             <button
@@ -971,54 +1057,82 @@ export default function AdminPage() {
                   <table className="w-full">
                     <thead className="bg-[var(--cream)]">
                       <tr>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--forest)]">Email</th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--forest)]">Zip Code</th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--forest)]">Date</th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--forest)]">Klaviyo</th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--forest)]">GHL</th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--forest)]">Actions</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Email</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Name</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Zip</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Source</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Date</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Klaviyo</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--sage)]/10">
                       {subscribers.map((sub) => (
                         <tr key={sub.id} className="hover:bg-[var(--sage-light)]/20">
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <Mail className="w-4 h-4 text-[var(--sage)]" />
                               <span className="text-sm text-[var(--forest)]">{sub.email}</span>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <MapPin className="w-4 h-4 text-[var(--sage)]" />
-                              <span className="text-sm text-[var(--forest)]">{sub.zip_code || '-'}</span>
-                            </div>
+                          <td className="px-4 py-3">
+                            <span className="text-sm text-[var(--forest)]">{sub.first_name || '-'}</span>
                           </td>
-                          <td className="px-6 py-4 text-sm text-[var(--forest)]/60">
+                          <td className="px-4 py-3">
+                            <span className="text-sm text-[var(--forest)]">{sub.zip_code || '-'}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {sub.utm_source ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800" title={`${sub.utm_source}${sub.utm_medium ? ` / ${sub.utm_medium}` : ''}${sub.utm_campaign ? ` / ${sub.utm_campaign}` : ''}`}>
+                                {sub.utm_source}
+                              </span>
+                            ) : sub.referrer ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title={sub.referrer}>
+                                referral
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">direct</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-[var(--forest)]/60">
                             {new Date(sub.created_at).toLocaleDateString()}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-3">
                             {sub.synced_klaviyo ? (
                               <CheckCircle className="w-5 h-5 text-green-500" />
                             ) : (
-                              <X className="w-5 h-5 text-gray-300" />
+                              <span className="flex items-center gap-1">
+                                <X className="w-5 h-5 text-gray-300" />
+                                {!sub.landing_page_id && (
+                                  <span className="text-xs text-orange-500" title="No landing page linked">⚠</span>
+                                )}
+                              </span>
                             )}
                           </td>
-                          <td className="px-6 py-4">
-                            {sub.synced_ghl ? (
-                              <CheckCircle className="w-5 h-5 text-green-500" />
-                            ) : (
-                              <X className="w-5 h-5 text-gray-300" />
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <button
-                              onClick={() => deleteSubscriber(sub.id)}
-                              className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                              title="Delete subscriber"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-500" />
-                            </button>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1">
+                              {!sub.synced_klaviyo && sub.landing_page_id && (
+                                <button
+                                  onClick={() => syncSubscriberToKlaviyo(sub.id)}
+                                  disabled={syncingSubscriberId === sub.id}
+                                  className="p-1.5 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
+                                  title="Sync to Klaviyo"
+                                >
+                                  {syncingSubscriberId === sub.id ? (
+                                    <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="w-4 h-4 text-blue-500" />
+                                  )}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => deleteSubscriber(sub.id)}
+                                className="p-1.5 hover:bg-red-100 rounded-lg transition-colors"
+                                title="Delete subscriber"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1068,9 +1182,9 @@ export default function AdminPage() {
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h2 className="font-display text-2xl text-[var(--forest)]">Landing Page Variants</h2>
+                <h2 className="font-display text-2xl text-[var(--forest)]">Landing Pages</h2>
                 <p className="text-sm text-[var(--forest)]/60 mt-1">
-                  Each client has their own pages for A/B testing
+                  Create and manage landing pages for each client
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -1106,7 +1220,7 @@ export default function AdminPage() {
                       theme: 'light',
                       custom_css: null,
                       active: true,
-                      traffic_weight: 50,
+                      traffic_weight: 100,
                       views: 0,
                       conversions: 0,
                       collect_first_name: false,
@@ -1118,7 +1232,7 @@ export default function AdminPage() {
                   className="btn-primary px-6 py-3 rounded-xl text-white font-medium flex items-center gap-2"
                 >
                   <Plus className="w-5 h-5" />
-                  New Variant
+                  New Landing Page
                 </button>
               </div>
             </div>
@@ -1218,34 +1332,18 @@ export default function AdminPage() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">
-                            <Palette className="w-4 h-4 inline mr-1" /> Theme
-                          </label>
-                          <select
-                            value={editingPage?.theme || 'light'}
-                            onChange={(e) => setEditingPage({ ...editingPage!, theme: e.target.value as 'light' | 'dark' })}
-                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                          >
-                            <option value="light">Light (Original)</option>
-                            <option value="dark">Dark (Psychedelic)</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">
-                            <BarChart3 className="w-4 h-4 inline mr-1" /> Traffic Weight (%)
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={editingPage?.traffic_weight || 50}
-                            onChange={(e) => setEditingPage({ ...editingPage!, traffic_weight: parseInt(e.target.value) || 0 })}
-                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                          />
-                        </div>
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">
+                          <Palette className="w-4 h-4 inline mr-1" /> Theme
+                        </label>
+                        <select
+                          value={editingPage?.theme || 'light'}
+                          onChange={(e) => setEditingPage({ ...editingPage!, theme: e.target.value as 'light' | 'dark' })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                        >
+                          <option value="light">Light (Original)</option>
+                          <option value="dark">Dark (Psychedelic)</option>
+                        </select>
                       </div>
 
                       <div>
@@ -1424,7 +1522,7 @@ export default function AdminPage() {
                           className="w-5 h-5 rounded border-[var(--sage)] text-[var(--primary)] focus:ring-[var(--primary)]"
                         />
                         <label htmlFor="page-active" className="text-sm font-medium text-[var(--forest)]">
-                          Active (included in A/B test rotation)
+                          Active (visible to visitors)
                         </label>
                       </div>
 
@@ -1613,11 +1711,6 @@ export default function AdminPage() {
                           {/* Stats Row */}
                           <div className="flex gap-6 text-sm">
                             <div className="flex items-center gap-2">
-                              <BarChart3 className="w-4 h-4 text-[var(--sage)]" />
-                              <span className="text-[var(--forest)]/60">Weight:</span>
-                              <span className="font-semibold text-[var(--forest)]">{page.traffic_weight}%</span>
-                            </div>
-                            <div className="flex items-center gap-2">
                               <Eye className="w-4 h-4 text-blue-500" />
                               <span className="text-[var(--forest)]/60">Views:</span>
                               <span className="font-semibold text-[var(--forest)]">{page.views.toLocaleString()}</span>
@@ -1648,12 +1741,21 @@ export default function AdminPage() {
                           <button
                             onClick={() => setEditingPage(page)}
                             className="p-2 hover:bg-[var(--sage-light)] rounded-lg transition-colors"
+                            title="Edit page"
                           >
                             <Edit2 className="w-5 h-5 text-[var(--forest)]" />
                           </button>
                           <button
+                            onClick={() => page.id && resetLandingPageStats(page.id)}
+                            className="p-2 hover:bg-orange-100 rounded-lg transition-colors"
+                            title="Reset stats"
+                          >
+                            <RefreshCw className="w-5 h-5 text-orange-500" />
+                          </button>
+                          <button
                             onClick={() => page.id && deleteLandingPage(page.id)}
                             className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                            title="Delete page"
                           >
                             <Trash2 className="w-5 h-5 text-red-500" />
                           </button>
@@ -1986,6 +2088,52 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {/* Debug Panel */}
+        {showDebugPanel && (
+          <div className="fixed bottom-0 left-0 right-0 bg-gray-900 text-green-400 font-mono text-xs max-h-64 overflow-auto z-50 border-t-2 border-green-500">
+            <div className="flex justify-between items-center px-4 py-2 bg-gray-800 sticky top-0">
+              <div className="flex items-center gap-4">
+                <span className="text-white font-bold">Debug Console</span>
+                <button
+                  onClick={fetchDebugInfo}
+                  className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-500"
+                >
+                  Fetch Debug Info
+                </button>
+                <button
+                  onClick={() => setDebugLog([])}
+                  className="px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-500"
+                >
+                  Clear
+                </button>
+              </div>
+              <button
+                onClick={() => setShowDebugPanel(false)}
+                className="text-white hover:text-red-400"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 space-y-1">
+              {debugLog.length === 0 ? (
+                <div className="text-gray-500">No logs yet. Click sync on a subscriber to see output.</div>
+              ) : (
+                debugLog.map((log, i) => (
+                  <pre key={i} className="whitespace-pre-wrap break-all">{log}</pre>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Debug Toggle Button */}
+        <button
+          onClick={() => setShowDebugPanel(!showDebugPanel)}
+          className="fixed bottom-4 right-4 bg-gray-800 text-green-400 px-3 py-2 rounded-lg text-xs font-mono z-40 hover:bg-gray-700"
+        >
+          {showDebugPanel ? '🔽 Hide Debug' : '🔼 Show Debug'}
+        </button>
       </div>
     </div>
   );
