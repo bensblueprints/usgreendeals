@@ -7,6 +7,7 @@
   "/api/deals/route": "app/api/deals/route.js",
   "/api/debug/route": "app/api/debug/route.js",
   "/api/images/route": "app/api/images/route.js",
+  "/api/klaviyo/route": "app/api/klaviyo/route.js",
   "/api/landing-pages/route": "app/api/landing-pages/route.js",
   "/api/settings/route": "app/api/settings/route.js",
   "/api/subscribe/route": "app/api/subscribe/route.js",

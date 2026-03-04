@@ -77,6 +77,12 @@
       "namedRegex": "^/api/images(?:/)?$"
     },
     {
+      "page": "/api/klaviyo",
+      "regex": "^/api/klaviyo(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/klaviyo(?:/)?$"
+    },
+    {
       "page": "/api/landing-pages",
       "regex": "^/api/landing\\-pages(?:/)?$",
       "routeKeys": {},

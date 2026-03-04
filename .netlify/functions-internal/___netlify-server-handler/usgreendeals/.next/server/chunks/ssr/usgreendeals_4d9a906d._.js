@@ -1,0 +1,8 @@
+module.exports=[46402,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(67522);a.n(d("[project]/usgreendeals/node_modules/next/dist/client/script.js <module evaluation>"))},85292,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(67522);a.n(d("[project]/usgreendeals/node_modules/next/dist/client/script.js"))},33706,a=>{"use strict";a.i(46402);var b=a.i(85292);a.n(b)},51046,(a,b,c)=>{b.exports=a.r(33706)},66755,a=>{"use strict";var b=a.i(10461),c=a.i(51046);function d({children:a}){return(0,b.jsxs)("html",{lang:"en",children:[(0,b.jsxs)("head",{children:[(0,b.jsx)(c.default,{src:"https://www.googletagmanager.com/gtag/js?id=G-QJKX45WXV7",strategy:"afterInteractive"}),(0,b.jsx)(c.default,{id:"google-analytics",strategy:"afterInteractive",children:`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-QJKX45WXV7');
+          `})]}),(0,b.jsxs)("body",{className:"antialiased",children:[(0,b.jsx)("div",{className:"noise-overlay"}),a]})]})}a.s(["default",()=>d,"metadata",0,{title:"US Green Deals | Exclusive Wellness Savings",description:"Get exclusive deals on premium wellness products delivered to your inbox. Join thousands saving on natural lifestyle products.",keywords:"wellness deals, natural products, lifestyle savings, green deals, organic discounts",openGraph:{title:"US Green Deals | Exclusive Wellness Savings",description:"Get exclusive deals on premium wellness products delivered to your inbox.",type:"website",locale:"en_US"}}])}];
+
+//# sourceMappingURL=usgreendeals_4d9a906d._.js.map

@@ -1,10 +1,21 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Leaf, CheckCircle, MapPin, Mail, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+
+// Declare gtag for TypeScript
+declare global {
+  interface Window {
+    gtag?: (
+      command: 'event' | 'config' | 'js',
+      action: string | Date,
+      params?: Record<string, unknown>
+    ) => void;
+  }
+}
 
 interface LocationData {
   city: string;
@@ -16,6 +27,19 @@ function ThankYouContent() {
   const zipCode = searchParams.get('zip');
   const [location, setLocation] = useState<LocationData | null>(null);
   const [loading, setLoading] = useState(true);
+  const hasTracked = useRef(false);
+
+  // Track signup conversion in Google Analytics (only once)
+  useEffect(() => {
+    if (!hasTracked.current && typeof window !== 'undefined' && window.gtag) {
+      window.gtag('event', 'sign_up', {
+        event_category: 'conversion',
+        event_label: 'email_signup',
+        zip_code: zipCode || 'unknown',
+      });
+      hasTracked.current = true;
+    }
+  }, [zipCode]);
 
   useEffect(() => {
     if (zipCode) {

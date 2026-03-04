@@ -7,6 +7,7 @@
   "/api/deals/route": "/api/deals",
   "/api/debug/route": "/api/debug",
   "/api/images/route": "/api/images",
+  "/api/klaviyo/route": "/api/klaviyo",
   "/api/landing-pages/route": "/api/landing-pages",
   "/api/settings/route": "/api/settings",
   "/api/subscribe/route": "/api/subscribe",

@@ -4,6 +4,17 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Leaf, Mail, CheckCircle, ArrowRight, Sparkles, Shield, MapPin } from 'lucide-react';
 
+// Declare gtag for TypeScript
+declare global {
+  interface Window {
+    gtag?: (
+      command: 'event' | 'config' | 'js',
+      action: string | Date,
+      params?: Record<string, unknown>
+    ) => void;
+  }
+}
+
 interface LandingPage {
   id: string;
   name: string;
@@ -38,6 +49,16 @@ export default function LandingPage() {
           // Homepage is set, use it directly
           setLandingPage(data.page);
           setPageLoading(false);
+          // Track landing page view with variant info
+          if (typeof window !== 'undefined' && window.gtag) {
+            window.gtag('event', 'page_view', {
+              page_title: data.page.name,
+              landing_page_id: data.page.id,
+              landing_page_slug: data.page.slug,
+              landing_page_theme: data.page.theme,
+              is_homepage: true,
+            });
+          }
         } else {
           // No homepage, use random landing page for A/B test
           return fetch('/api/landing-pages?action=random')
@@ -45,6 +66,16 @@ export default function LandingPage() {
             .then(data => {
               if (data.page) {
                 setLandingPage(data.page);
+                // Track landing page view with variant info
+                if (typeof window !== 'undefined' && window.gtag) {
+                  window.gtag('event', 'page_view', {
+                    page_title: data.page.name,
+                    landing_page_id: data.page.id,
+                    landing_page_slug: data.page.slug,
+                    landing_page_theme: data.page.theme,
+                    is_homepage: false,
+                  });
+                }
               }
               setPageLoading(false);
             });
@@ -88,6 +119,16 @@ export default function LandingPage() {
 
       if (!response.ok) {
         throw new Error(data.error || 'Something went wrong');
+      }
+
+      // Track form submission in Google Analytics
+      if (typeof window !== 'undefined' && window.gtag) {
+        window.gtag('event', 'generate_lead', {
+          event_category: 'engagement',
+          event_label: landingPage?.name || 'default',
+          landing_page_id: landingPage?.id,
+          landing_page_slug: landingPage?.slug,
+        });
       }
 
       // Redirect to thank you page with zip code
