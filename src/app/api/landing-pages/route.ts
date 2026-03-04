@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   getLandingPages,
   getLandingPagesByClient,
+  getLandingPageBySlug,
   saveLandingPage,
   deleteLandingPage,
   selectRandomLandingPage,
@@ -30,6 +31,16 @@ export async function GET(request: NextRequest) {
     if (action === 'homepage') {
       // Get the current homepage (optionally for a specific client)
       const page = await getHomepage(clientId || undefined);
+      return NextResponse.json({ page });
+    }
+
+    if (action === 'by-slug') {
+      // Get a specific landing page by slug
+      const slug = searchParams.get('slug');
+      if (!slug) {
+        return NextResponse.json({ error: 'Slug required' }, { status: 400 });
+      }
+      const page = await getLandingPageBySlug(slug);
       return NextResponse.json({ page });
     }
 
@@ -73,6 +84,20 @@ export async function PUT(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+
+    // Increment views action (no auth required for public pages)
+    if (action === 'increment-views') {
+      const id = searchParams.get('id');
+      if (id) {
+        await incrementViewsDirectly(id);
+        return NextResponse.json({ success: true });
+      }
+      return NextResponse.json({ error: 'ID required' }, { status: 400 });
+    }
+
+    // Save landing page (requires body)
     const body = await request.json();
     const page = await saveLandingPage(body);
 
