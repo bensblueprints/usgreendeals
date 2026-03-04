@@ -31,6 +31,7 @@ export interface LandingPage {
   collect_first_name: boolean;
   is_homepage: boolean;
   client_id: string | null;
+  klaviyo_list_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -42,6 +43,7 @@ export interface Client {
   klaviyo_api_key: string | null;
   klaviyo_list_id: string | null;
   active: boolean;
+  is_default: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -453,6 +455,7 @@ export async function saveLandingPage(page: Partial<LandingPage> & { id?: string
         traffic_weight: page.traffic_weight,
         collect_first_name: page.collect_first_name ?? false,
         client_id: page.client_id || null,
+        klaviyo_list_id: page.klaviyo_list_id || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', page.id)
@@ -485,6 +488,7 @@ export async function saveLandingPage(page: Partial<LandingPage> & { id?: string
       collect_first_name: page.collect_first_name ?? false,
       is_homepage: page.is_homepage ?? false,
       client_id: page.client_id || null,
+      klaviyo_list_id: page.klaviyo_list_id || null,
     })
     .select()
     .single();
@@ -543,9 +547,56 @@ export async function incrementConversionsDirectly(id: string): Promise<void> {
   }
 }
 
-// Select a random landing page based on traffic weights
-export async function selectRandomLandingPage(): Promise<LandingPage | null> {
-  const pages = await getActiveLandingPages();
+// Get landing pages for a specific client
+export async function getLandingPagesByClient(clientId: string): Promise<LandingPage[]> {
+  const { data, error } = await supabaseAdmin
+    .from('landing_pages')
+    .select('*')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching client landing pages:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+// Get active landing pages for a specific client
+export async function getActiveLandingPagesByClient(clientId: string): Promise<LandingPage[]> {
+  const { data, error } = await supabaseAdmin
+    .from('landing_pages')
+    .select('*')
+    .eq('client_id', clientId)
+    .eq('active', true)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching active client landing pages:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+// Select a random landing page based on traffic weights (for a specific client)
+export async function selectRandomLandingPage(clientId?: string): Promise<LandingPage | null> {
+  let pages: LandingPage[];
+
+  if (clientId) {
+    pages = await getActiveLandingPagesByClient(clientId);
+  } else {
+    // If no client specified, get pages from the default client
+    const defaultClient = await getDefaultClient();
+    if (defaultClient) {
+      pages = await getActiveLandingPagesByClient(defaultClient.id);
+    } else {
+      // Fallback to all active pages if no default client
+      pages = await getActiveLandingPages();
+    }
+  }
+
   if (pages.length === 0) return null;
   if (pages.length === 1) return pages[0];
 
@@ -572,13 +623,20 @@ export async function getLandingPageStats(): Promise<{ total_views: number; tota
   return { total_views, total_conversions, pages };
 }
 
-// Set a landing page as homepage (unset others)
+// Set a landing page as homepage within its client (unset others for that client)
 export async function setHomepage(id: string): Promise<void> {
-  // First, unset all homepages
-  await supabaseAdmin
-    .from('landing_pages')
-    .update({ is_homepage: false })
-    .eq('is_homepage', true);
+  // First get the page to know its client
+  const page = await getLandingPageById(id);
+  if (!page) return;
+
+  // Unset homepage for all pages belonging to this client
+  if (page.client_id) {
+    await supabaseAdmin
+      .from('landing_pages')
+      .update({ is_homepage: false })
+      .eq('client_id', page.client_id)
+      .eq('is_homepage', true);
+  }
 
   // Set the new homepage
   await supabaseAdmin
@@ -587,11 +645,32 @@ export async function setHomepage(id: string): Promise<void> {
     .eq('id', id);
 }
 
-// Get the homepage landing page
-export async function getHomepage(): Promise<LandingPage | null> {
+// Get the homepage landing page (from default client or specified client)
+export async function getHomepage(clientId?: string): Promise<LandingPage | null> {
+  let targetClientId = clientId;
+
+  // If no client specified, use the default client
+  if (!targetClientId) {
+    const defaultClient = await getDefaultClient();
+    if (defaultClient) {
+      targetClientId = defaultClient.id;
+    }
+  }
+
+  if (!targetClientId) {
+    // Fallback: get any homepage
+    const { data } = await supabaseAdmin
+      .from('landing_pages')
+      .select('*')
+      .eq('is_homepage', true)
+      .single();
+    return data || null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('landing_pages')
     .select('*')
+    .eq('client_id', targetClientId)
     .eq('is_homepage', true)
     .single();
 
@@ -600,6 +679,37 @@ export async function getHomepage(): Promise<LandingPage | null> {
   }
 
   return data;
+}
+
+// Get the default client
+export async function getDefaultClient(): Promise<Client | null> {
+  const { data, error } = await supabaseAdmin
+    .from('clients')
+    .select('*')
+    .eq('is_default', true)
+    .eq('active', true)
+    .single();
+
+  if (error) {
+    return null;
+  }
+
+  return data;
+}
+
+// Set a client as the default (unset others)
+export async function setDefaultClient(id: string): Promise<void> {
+  // First, unset all default clients
+  await supabaseAdmin
+    .from('clients')
+    .update({ is_default: false })
+    .eq('is_default', true);
+
+  // Set the new default
+  await supabaseAdmin
+    .from('clients')
+    .update({ is_default: true })
+    .eq('id', id);
 }
 
 // Clients CRUD
@@ -656,6 +766,10 @@ export async function saveClient(client: Partial<Client> & { id?: string }): Pro
     return data;
   }
 
+  // For new clients, check if this is the first client (make it default)
+  const existingClients = await getClients();
+  const isFirstClient = existingClients.length === 0;
+
   const { data, error } = await supabaseAdmin
     .from('clients')
     .insert({
@@ -664,6 +778,7 @@ export async function saveClient(client: Partial<Client> & { id?: string }): Pro
       klaviyo_api_key: client.klaviyo_api_key || null,
       klaviyo_list_id: client.klaviyo_list_id || null,
       active: client.active ?? true,
+      is_default: isFirstClient,
     })
     .select()
     .single();
@@ -683,10 +798,12 @@ export async function deleteClient(id: string): Promise<void> {
     .eq('id', id);
 }
 
-// Sync to client-specific Klaviyo
-export async function syncToClientKlaviyo(subscriber: Subscriber, client: Client): Promise<boolean> {
-  if (!client.klaviyo_api_key || !client.klaviyo_list_id) {
-    console.log('Client Klaviyo not configured');
+// Sync to client-specific Klaviyo with a specific list
+export async function syncToClientKlaviyo(subscriber: Subscriber, client: Client, listId?: string): Promise<boolean> {
+  const targetListId = listId || client.klaviyo_list_id;
+
+  if (!client.klaviyo_api_key || !targetListId) {
+    console.log('Client Klaviyo not configured or no list specified');
     return false;
   }
 
@@ -725,7 +842,7 @@ export async function syncToClientKlaviyo(subscriber: Subscriber, client: Client
             list: {
               data: {
                 type: 'list',
-                id: client.klaviyo_list_id,
+                id: targetListId,
               },
             },
           },

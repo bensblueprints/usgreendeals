@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getLandingPages,
+  getLandingPagesByClient,
   saveLandingPage,
   deleteLandingPage,
   selectRandomLandingPage,
@@ -13,11 +14,12 @@ import {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
+  const clientId = searchParams.get('client_id');
 
   try {
     if (action === 'random') {
-      // Get a random page for A/B testing
-      const page = await selectRandomLandingPage();
+      // Get a random page for A/B testing (optionally for a specific client)
+      const page = await selectRandomLandingPage(clientId || undefined);
       if (page) {
         // Increment views
         await incrementViewsDirectly(page.id);
@@ -26,14 +28,20 @@ export async function GET(request: NextRequest) {
     }
 
     if (action === 'homepage') {
-      // Get the current homepage
-      const page = await getHomepage();
+      // Get the current homepage (optionally for a specific client)
+      const page = await getHomepage(clientId || undefined);
       return NextResponse.json({ page });
     }
 
     if (action === 'stats') {
       const stats = await getLandingPageStats();
       return NextResponse.json(stats);
+    }
+
+    // Get landing pages - filter by client if specified
+    if (clientId) {
+      const pages = await getLandingPagesByClient(clientId);
+      return NextResponse.json({ pages });
     }
 
     // Default: get all landing pages

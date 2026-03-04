@@ -78,6 +78,7 @@ interface LandingPage {
   collect_first_name: boolean;
   is_homepage: boolean;
   client_id: string | null;
+  klaviyo_list_id: string | null;
 }
 
 interface Client {
@@ -87,6 +88,7 @@ interface Client {
   klaviyo_api_key: string | null;
   klaviyo_list_id: string | null;
   active: boolean;
+  is_default?: boolean;
 }
 
 export default function AdminPage() {
@@ -121,6 +123,9 @@ export default function AdminPage() {
   const [isCreatingClient, setIsCreatingClient] = useState(false);
   const [klaviyoLists, setKlaviyoLists] = useState<{ id: string; name: string }[]>([]);
   const [loadingLists, setLoadingLists] = useState(false);
+  const [selectedClientFilter, setSelectedClientFilter] = useState<string>('all');
+  const [pageLists, setPageLists] = useState<{ id: string; name: string }[]>([]);
+  const [loadingPageLists, setLoadingPageLists] = useState(false);
 
   // Settings state
   const [settings, setSettings] = useState<SettingsData>({
@@ -467,6 +472,42 @@ export default function AdminPage() {
     }
   }, [editingClient?.klaviyo_api_key]);
 
+  // Fetch Klaviyo lists for landing page's client
+  const fetchPageClientLists = async (clientId: string) => {
+    const client = clients.find(c => c.id === clientId);
+    if (!client?.klaviyo_api_key) {
+      setPageLists([]);
+      return;
+    }
+
+    setLoadingPageLists(true);
+    try {
+      const response = await fetch(`/api/klaviyo?api_key=${encodeURIComponent(client.klaviyo_api_key)}`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPageLists(data.lists || []);
+      } else {
+        setPageLists([]);
+      }
+    } catch {
+      setPageLists([]);
+    } finally {
+      setLoadingPageLists(false);
+    }
+  };
+
+  // Fetch lists when editing landing page client changes
+  useEffect(() => {
+    if (editingPage?.client_id) {
+      fetchPageClientLists(editingPage.client_id);
+    } else {
+      setPageLists([]);
+    }
+  }, [editingPage?.client_id, clients]);
+
   const saveClientData = async (client: Client) => {
     setLoading(true);
     try {
@@ -512,6 +553,27 @@ export default function AdminPage() {
       }
     } catch {
       showMessage('error', 'Failed to delete client');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setDefaultClientAction = async (id: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/clients?action=set-default&id=${id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+
+      if (response.ok) {
+        showMessage('success', 'Default client updated!');
+        loadData(authToken);
+      } else {
+        showMessage('error', 'Failed to set default client');
+      }
+    } catch {
+      showMessage('error', 'Failed to set default client');
     } finally {
       setLoading(false);
     }
@@ -1004,35 +1066,61 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="flex justify-between items-center">
-              <h2 className="font-display text-2xl text-[var(--forest)]">Landing Page Variants</h2>
-              <button
-                onClick={() => {
-                  setIsCreatingPage(true);
-                  setEditingPage({
-                    name: '',
-                    slug: '',
-                    background_image: null,
-                    background_color: '#1a1a2e',
-                    headline: 'Exclusive Green Lifestyle Deals',
-                    subheadline: 'Join our exclusive list for premium wellness deals.',
-                    button_text: 'Get Exclusive Deals',
-                    theme: 'light',
-                    custom_css: null,
-                    active: true,
-                    traffic_weight: 50,
-                    views: 0,
-                    conversions: 0,
-                    collect_first_name: false,
-                    is_homepage: false,
-                    client_id: null,
-                  });
-                }}
-                className="btn-primary px-6 py-3 rounded-xl text-white font-medium flex items-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                New Variant
-              </button>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h2 className="font-display text-2xl text-[var(--forest)]">Landing Page Variants</h2>
+                <p className="text-sm text-[var(--forest)]/60 mt-1">
+                  Each client has their own pages for A/B testing
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Client Filter */}
+                <select
+                  value={selectedClientFilter}
+                  onChange={(e) => setSelectedClientFilter(e.target.value)}
+                  className="px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)] bg-white"
+                >
+                  <option value="all">All Clients</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name} {client.is_default ? '(Default)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => {
+                    if (clients.length === 0) {
+                      showMessage('error', 'Create a client first before adding landing pages');
+                      return;
+                    }
+                    const defaultClient = clients.find(c => c.is_default) || clients[0];
+                    setIsCreatingPage(true);
+                    setEditingPage({
+                      name: '',
+                      slug: '',
+                      background_image: null,
+                      background_color: '#1a1a2e',
+                      headline: 'Exclusive Green Lifestyle Deals',
+                      subheadline: 'Join our exclusive list for premium wellness deals.',
+                      button_text: 'Get Exclusive Deals',
+                      theme: 'light',
+                      custom_css: null,
+                      active: true,
+                      traffic_weight: 50,
+                      views: 0,
+                      conversions: 0,
+                      collect_first_name: false,
+                      is_homepage: false,
+                      client_id: selectedClientFilter !== 'all' ? selectedClientFilter : defaultClient?.id || null,
+                      klaviyo_list_id: null,
+                    });
+                  }}
+                  className="btn-primary px-6 py-3 rounded-xl text-white font-medium flex items-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  New Variant
+                </button>
+              </div>
             </div>
 
             {/* Landing Page Editor Modal */}
@@ -1360,25 +1448,74 @@ export default function AdminPage() {
                       </div>
 
                       {/* Client Selection */}
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">
-                          Client (Klaviyo List)
-                        </label>
-                        <select
-                          value={editingPage?.client_id || ''}
-                          onChange={(e) => setEditingPage({ ...editingPage!, client_id: e.target.value || null })}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                        >
-                          <option value="">Default (Global Settings)</option>
-                          {clients.map((client) => (
-                            <option key={client.id} value={client.id}>
-                              {client.name} {client.klaviyo_list_id ? `(${client.klaviyo_list_id})` : '(No list)'}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="text-xs text-[var(--forest)]/50 mt-1">
-                          Select which Klaviyo list to sync subscribers to
-                        </p>
+                      <div className="p-4 bg-blue-50 rounded-xl space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">
+                            Client <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            value={editingPage?.client_id || ''}
+                            onChange={(e) => {
+                              setEditingPage({
+                                ...editingPage!,
+                                client_id: e.target.value || null,
+                                klaviyo_list_id: null // Reset list when client changes
+                              });
+                            }}
+                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)] bg-white"
+                            required
+                          >
+                            <option value="">Select a client...</option>
+                            {clients.map((client) => (
+                              <option key={client.id} value={client.id}>
+                                {client.name} {client.is_default ? '(Default)' : ''} {client.klaviyo_api_key ? '' : '(No API key)'}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-[var(--forest)]/50 mt-1">
+                            Each landing page belongs to a client
+                          </p>
+                        </div>
+
+                        {/* Klaviyo List Selection */}
+                        {editingPage?.client_id && (
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">
+                              Klaviyo List
+                            </label>
+                            {loadingPageLists ? (
+                              <div className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 bg-white flex items-center gap-2">
+                                <div className="w-4 h-4 border-2 border-[var(--primary)]/30 border-t-[var(--primary)] rounded-full animate-spin" />
+                                <span className="text-sm text-[var(--forest)]/60">Loading lists...</span>
+                              </div>
+                            ) : pageLists.length > 0 ? (
+                              <select
+                                value={editingPage?.klaviyo_list_id || ''}
+                                onChange={(e) => setEditingPage({ ...editingPage!, klaviyo_list_id: e.target.value || null })}
+                                className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)] bg-white"
+                              >
+                                <option value="">Select a list...</option>
+                                {pageLists.map((list) => (
+                                  <option key={list.id} value={list.id}>
+                                    {list.name} ({list.id})
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <div className="w-full px-4 py-3 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-700 text-sm">
+                                {clients.find(c => c.id === editingPage.client_id)?.klaviyo_api_key
+                                  ? 'No lists found for this client'
+                                  : 'Client has no Klaviyo API key configured'}
+                              </div>
+                            )}
+                            {editingPage?.klaviyo_list_id && (
+                              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" />
+                                Subscribers will sync to: {editingPage.klaviyo_list_id}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <button
@@ -1403,13 +1540,25 @@ export default function AdminPage() {
 
             {/* Landing Pages List */}
             <div className="grid gap-4">
-              {landingPages.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-2xl">
-                  <Layers className="w-12 h-12 text-[var(--sage)] mx-auto mb-4" />
-                  <p className="text-[var(--forest)]/60">No landing pages yet. Create your first variant!</p>
-                </div>
-              ) : (
-                landingPages.map((page) => {
+              {(() => {
+                const filteredPages = selectedClientFilter === 'all'
+                  ? landingPages
+                  : landingPages.filter(p => p.client_id === selectedClientFilter);
+
+                if (filteredPages.length === 0) {
+                  return (
+                    <div className="text-center py-12 bg-white rounded-2xl">
+                      <Layers className="w-12 h-12 text-[var(--sage)] mx-auto mb-4" />
+                      <p className="text-[var(--forest)]/60">
+                        {selectedClientFilter === 'all'
+                          ? 'No landing pages yet. Create your first variant!'
+                          : `No landing pages for this client. Create one!`}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return filteredPages.map((page) => {
                   const conversionRate = page.views > 0 ? ((page.conversions / page.views) * 100).toFixed(1) : '0';
                   return (
                     <div
@@ -1512,8 +1661,8 @@ export default function AdminPage() {
                       </div>
                     </div>
                   );
-                })
-              )}
+                });
+              })()}
             </div>
           </div>
         )}
@@ -1700,49 +1849,69 @@ export default function AdminPage() {
                 clients.map((client) => (
                   <div
                     key={client.id}
-                    className={`bg-white rounded-2xl p-5 flex items-center gap-4 ${
-                      !client.active ? 'opacity-60' : ''
-                    }`}
+                    className={`bg-white rounded-2xl p-5 ${
+                      client.is_default ? 'ring-2 ring-[var(--primary)]' : ''
+                    } ${!client.active ? 'opacity-60' : ''}`}
                   >
-                    <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center">
-                      <Users className="w-6 h-6 text-indigo-600" />
-                    </div>
-
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-[var(--forest)]">{client.name}</h3>
-                        <span className="text-xs text-[var(--forest)]/50">/{client.slug}</span>
-                        {!client.active && (
-                          <span className="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-600">
-                            Inactive
-                          </span>
-                        )}
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                        client.is_default ? 'bg-[var(--primary)] text-white' : 'bg-indigo-100'
+                      }`}>
+                        <Users className={`w-6 h-6 ${client.is_default ? 'text-white' : 'text-indigo-600'}`} />
                       </div>
-                      <p className="text-sm text-[var(--forest)]/60">
-                        {client.klaviyo_list_id ? (
-                          <span className="flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3 text-green-500" />
-                            List: {client.klaviyo_list_id}
-                          </span>
-                        ) : (
-                          <span className="text-amber-600">No Klaviyo list configured</span>
-                        )}
-                      </p>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setEditingClient(client)}
-                        className="p-2 hover:bg-[var(--sage-light)] rounded-lg transition-colors"
-                      >
-                        <Edit2 className="w-5 h-5 text-[var(--forest)]" />
-                      </button>
-                      <button
-                        onClick={() => client.id && deleteClientData(client.id)}
-                        className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-5 h-5 text-red-500" />
-                      </button>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-[var(--forest)]">{client.name}</h3>
+                          <span className="text-xs text-[var(--forest)]/50">/{client.slug}</span>
+                          {client.is_default && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-[var(--primary)] text-white">
+                              Default
+                            </span>
+                          )}
+                          {!client.active && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-600">
+                              Inactive
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 mt-1 text-sm text-[var(--forest)]/60">
+                          {client.klaviyo_api_key ? (
+                            <span className="flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3 text-green-500" />
+                              API Key configured
+                            </span>
+                          ) : (
+                            <span className="text-amber-600">No API key</span>
+                          )}
+                          <span className="text-[var(--forest)]/40">|</span>
+                          <span>{landingPages.filter(p => p.client_id === client.id).length} landing pages</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {!client.is_default && (
+                          <button
+                            onClick={() => client.id && setDefaultClientAction(client.id)}
+                            className="px-3 py-2 text-xs font-medium hover:bg-[var(--sage-light)] rounded-lg transition-colors text-[var(--primary)]"
+                            title="Set as default client for homepage"
+                          >
+                            Set Default
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setEditingClient(client)}
+                          className="p-2 hover:bg-[var(--sage-light)] rounded-lg transition-colors"
+                        >
+                          <Edit2 className="w-5 h-5 text-[var(--forest)]" />
+                        </button>
+                        <button
+                          onClick={() => client.id && deleteClientData(client.id)}
+                          className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-5 h-5 text-red-500" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))

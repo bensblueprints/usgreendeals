@@ -35,20 +35,23 @@ export async function POST(request: NextRequest) {
       await incrementConversionsDirectly(landingPageId);
     }
 
-    // Sync to client's Klaviyo list if landing page has a client configured
+    // Sync to Klaviyo using landing page's list (via client's API key)
     if (landingPageId) {
       const landingPage = await getLandingPageById(landingPageId);
       if (landingPage?.client_id) {
         const client = await getClientById(landingPage.client_id);
-        if (client?.klaviyo_api_key && client?.klaviyo_list_id) {
+        // Use landing page's list_id, or fall back to client's default list
+        const targetListId = landingPage.klaviyo_list_id || client?.klaviyo_list_id;
+
+        if (client?.klaviyo_api_key && targetListId) {
           try {
-            const klaviyoResult = await syncToClientKlaviyo(subscriber, client);
-            console.log('Klaviyo sync result:', klaviyoResult);
+            const klaviyoResult = await syncToClientKlaviyo(subscriber, client, targetListId);
+            console.log('Klaviyo sync result:', klaviyoResult, 'to list:', targetListId);
           } catch (err) {
             console.error('Klaviyo sync error:', err);
           }
         } else {
-          console.log('Client has no Klaviyo configured:', landingPage.client_id);
+          console.log('Client has no Klaviyo API key or no list configured:', landingPage.client_id);
         }
       } else {
         console.log('Landing page has no client assigned:', landingPageId);
