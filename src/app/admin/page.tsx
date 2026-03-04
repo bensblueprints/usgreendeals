@@ -54,8 +54,6 @@ interface Subscriber {
 }
 
 interface SettingsData {
-  klaviyo_api_key: string;
-  klaviyo_list_id: string;
   ghl_api_key: string;
   ghl_location_id: string;
   site_title: string;
@@ -126,8 +124,6 @@ export default function AdminPage() {
 
   // Settings state
   const [settings, setSettings] = useState<SettingsData>({
-    klaviyo_api_key: '',
-    klaviyo_list_id: '',
     ghl_api_key: '',
     ghl_location_id: '',
     site_title: '',
@@ -1760,9 +1756,17 @@ export default function AdminPage() {
           <div className="max-w-2xl space-y-6">
             <h2 className="font-display text-2xl text-[var(--forest)]">Integration Settings</h2>
 
+            {/* Klaviyo Notice */}
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> Klaviyo integration is now managed per-client in the <strong>Clients</strong> tab.
+                Each client can have their own Klaviyo API key and list.
+              </p>
+            </div>
+
             <div className="bg-white rounded-2xl p-6 space-y-6">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-[var(--forest)]">API Keys</h3>
+                <h3 className="font-semibold text-[var(--forest)]">GoHighLevel Integration</h3>
                 <button
                   onClick={() => setShowApiKeys(!showApiKeys)}
                   className="text-sm text-[var(--primary)] flex items-center gap-1"
@@ -1772,37 +1776,7 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              {/* Klaviyo Settings */}
               <div className="space-y-4">
-                <h4 className="text-sm font-medium text-[var(--forest)]/80">Klaviyo Integration</h4>
-
-                <div>
-                  <label className="block text-sm text-[var(--forest)]/60 mb-1">API Key</label>
-                  <input
-                    type={showApiKeys ? 'text' : 'password'}
-                    value={settings.klaviyo_api_key}
-                    onChange={(e) => setSettings({ ...settings, klaviyo_api_key: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                    placeholder="pk_..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-[var(--forest)]/60 mb-1">List ID</label>
-                  <input
-                    type="text"
-                    value={settings.klaviyo_list_id}
-                    onChange={(e) => setSettings({ ...settings, klaviyo_list_id: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                    placeholder="ABC123"
-                  />
-                </div>
-              </div>
-
-              {/* GHL Settings */}
-              <div className="space-y-4 pt-4 border-t border-[var(--sage)]/20">
-                <h4 className="text-sm font-medium text-[var(--forest)]/80">GoHighLevel Integration</h4>
-
                 <div>
                   <label className="block text-sm text-[var(--forest)]/60 mb-1">API Key</label>
                   <input

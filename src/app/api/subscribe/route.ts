@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { addSubscriber, syncToKlaviyo, syncToGHL, incrementConversionsDirectly, getLandingPageById, getClientById, syncToClientKlaviyo } from '@/lib/storage';
+import { addSubscriber, syncToGHL, incrementConversionsDirectly, getLandingPageById, getClientById, syncToClientKlaviyo } from '@/lib/storage';
 import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
@@ -35,27 +35,23 @@ export async function POST(request: NextRequest) {
       await incrementConversionsDirectly(landingPageId);
     }
 
-    // Attempt to sync to Klaviyo and GHL (non-blocking)
-    // Check if landing page has a client with custom Klaviyo settings
-    let useClientKlaviyo = false;
+    // Sync to client's Klaviyo list if landing page has a client configured
     if (landingPageId) {
       const landingPage = await getLandingPageById(landingPageId);
       if (landingPage?.client_id) {
         const client = await getClientById(landingPage.client_id);
         if (client?.klaviyo_api_key && client?.klaviyo_list_id) {
-          useClientKlaviyo = true;
-          syncToClientKlaviyo(subscriber, client).catch(console.error);
+          try {
+            const klaviyoResult = await syncToClientKlaviyo(subscriber, client);
+            console.log('Klaviyo sync result:', klaviyoResult);
+          } catch (err) {
+            console.error('Klaviyo sync error:', err);
+          }
+        } else {
+          console.log('Client has no Klaviyo configured:', landingPage.client_id);
         }
-      }
-    }
-
-    // If no client Klaviyo, use default settings
-    if (!useClientKlaviyo) {
-      try {
-        const klaviyoResult = await syncToKlaviyo(subscriber);
-        console.log('Klaviyo sync result:', klaviyoResult);
-      } catch (err) {
-        console.error('Klaviyo sync error:', err);
+      } else {
+        console.log('Landing page has no client assigned:', landingPageId);
       }
     }
 
