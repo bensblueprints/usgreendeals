@@ -3846,29 +3846,48 @@ export default function AdminPage() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Image URL</label>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Image</label>
                         <div className="flex gap-2">
                           <input
                             type="text"
                             value={editingAdCreative?.image_url || ''}
                             onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, image_url: e.target.value })}
                             className="flex-1 px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                            placeholder="https://..."
+                            placeholder="https://... or browse media"
                           />
                           <button
-                            onClick={() => {
-                              openImageSelector('background');
-                              setMediaBrowserCallback(() => (url: string) => {
-                                setEditingAdCreative({ ...editingAdCreative!, image_url: url });
-                              });
+                            onClick={async () => {
+                              // Load media for the ad's client
+                              const clientId = editingAdCreative?.client_id;
+                              if (!clientId) {
+                                showMessage('error', 'No client selected');
+                                return;
+                              }
+                              try {
+                                const res = await fetch(`/api/client-media?client_id=${clientId}`, {
+                                  headers: { Authorization: `Bearer ${authToken}` },
+                                });
+                                const data = await res.json();
+                                setClientMedia(data.media || []);
+                                setSelectedMediaClient(clientId);
+                                setShowClientMediaBrowser(true);
+                                setMediaBrowserCallback(() => (url: string) => {
+                                  setEditingAdCreative({ ...editingAdCreative!, image_url: url });
+                                  setShowClientMediaBrowser(false);
+                                });
+                              } catch {
+                                showMessage('error', 'Failed to load media');
+                              }
                             }}
-                            className="px-4 py-3 bg-[var(--sage-light)]/50 rounded-xl hover:bg-[var(--sage-light)]"
+                            className="px-4 py-3 bg-[var(--sage-light)]/50 rounded-xl hover:bg-[var(--sage-light)] flex items-center gap-2"
+                            title="Browse Client Media"
                           >
                             <FolderOpen className="w-5 h-5" />
+                            <span className="text-sm font-medium">Browse</span>
                           </button>
                         </div>
                         {editingAdCreative?.image_url && (
-                          <div className="mt-2 aspect-video bg-gray-100 rounded-xl overflow-hidden max-w-xs">
+                          <div className="mt-3 aspect-video bg-gray-100 rounded-xl overflow-hidden max-w-sm">
                             <img src={editingAdCreative.image_url} alt="Preview" className="w-full h-full object-cover" />
                           </div>
                         )}
@@ -3948,6 +3967,102 @@ export default function AdminPage() {
                         <Save className="w-5 h-5" />
                         {isCreatingAdCreative ? 'Create Ad Creative' : 'Save Changes'}
                       </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Client Media Browser Modal */}
+            <AnimatePresence>
+              {showClientMediaBrowser && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+                  onClick={() => {
+                    setShowClientMediaBrowser(false);
+                    setMediaBrowserCallback(null);
+                  }}
+                >
+                  <motion.div
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.95, opacity: 0 }}
+                    className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex justify-between items-center mb-4">
+                      <div>
+                        <h3 className="font-display text-xl text-[var(--forest)]">Select from Media Library</h3>
+                        <p className="text-sm text-[var(--forest)]/60">
+                          {clients.find(c => c.id === selectedMediaClient)?.name || 'Client'} - {clientMedia.length} files
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowClientMediaBrowser(false);
+                          setMediaBrowserCallback(null);
+                        }}
+                        className="p-2 hover:bg-gray-100 rounded-lg"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto">
+                      {clientMedia.length === 0 ? (
+                        <div className="text-center py-12">
+                          <FolderOpen className="w-16 h-16 text-[var(--sage)] mx-auto mb-4" />
+                          <p className="text-[var(--forest)]/60 mb-4">No media uploaded for this client yet.</p>
+                          <button
+                            onClick={() => {
+                              setShowClientMediaBrowser(false);
+                              setActiveTab('media');
+                            }}
+                            className="text-[var(--primary)] underline"
+                          >
+                            Go to Media Library to upload
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
+                          {clientMedia.map((media) => (
+                            <button
+                              key={media.id}
+                              onClick={() => {
+                                if (mediaBrowserCallback) {
+                                  mediaBrowserCallback(media.file_url);
+                                }
+                              }}
+                              className="relative group aspect-square rounded-xl overflow-hidden bg-gray-100 hover:ring-4 hover:ring-[var(--primary)] transition-all"
+                            >
+                              {media.file_type === 'video' ? (
+                                <div className="w-full h-full relative">
+                                  <video
+                                    src={media.file_url}
+                                    className="w-full h-full object-cover"
+                                    muted
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                    <Play className="w-8 h-8 text-white" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <img
+                                  src={media.file_url}
+                                  alt={media.file_name}
+                                  className="w-full h-full object-cover"
+                                />
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                                <span className="text-white text-xs truncate">{media.file_name}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 </motion.div>
