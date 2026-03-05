@@ -34,6 +34,7 @@ export interface LandingPage {
   slug: string;
   background_image: string | null;
   background_color: string;
+  video_url: string | null;
   headline: string;
   subheadline: string;
   button_text: string;

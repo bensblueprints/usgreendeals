@@ -80,6 +80,12 @@
       "namedRegex": "^/api/debug(?:/)?$"
     },
     {
+      "page": "/api/debug/klaviyo",
+      "regex": "^/api/debug/klaviyo(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/klaviyo(?:/)?$"
+    },
+    {
       "page": "/api/images",
       "regex": "^/api/images(?:/)?$",
       "routeKeys": {},
@@ -90,6 +96,12 @@
       "regex": "^/api/klaviyo(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/klaviyo(?:/)?$"
+    },
+    {
+      "page": "/api/klaviyo/sync",
+      "regex": "^/api/klaviyo/sync(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/klaviyo/sync(?:/)?$"
     },
     {
       "page": "/api/landing-pages",
@@ -116,10 +128,28 @@
       "namedRegex": "^/api/subscribers(?:/)?$"
     },
     {
+      "page": "/api/videos",
+      "regex": "^/api/videos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/videos(?:/)?$"
+    },
+    {
+      "page": "/deals",
+      "regex": "^/deals(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/deals(?:/)?$"
+    },
+    {
       "page": "/favicon.ico",
       "regex": "^/favicon\\.ico(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/legality",
+      "regex": "^/legality(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/legality(?:/)?$"
     },
     {
       "page": "/thank-you",

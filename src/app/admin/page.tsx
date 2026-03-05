@@ -30,6 +30,8 @@ import {
   User,
   Upload,
   ImageIcon,
+  Video,
+  Play,
 } from 'lucide-react';
 
 interface Deal {
@@ -72,6 +74,7 @@ interface LandingPage {
   slug: string;
   background_image: string | null;
   background_color: string;
+  video_url: string | null;
   headline: string;
   subheadline: string;
   button_text: string;
@@ -125,6 +128,11 @@ export default function AdminPage() {
   const [uploadedImages, setUploadedImages] = useState<{ name: string; url: string }[]>([]);
   const [showImageSelector, setShowImageSelector] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Videos state
+  const [uploadedVideos, setUploadedVideos] = useState<{ name: string; url: string }[]>([]);
+  const [showVideoSelector, setShowVideoSelector] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   // Clients state
   const [clients, setClients] = useState<Client[]>([]);
@@ -197,8 +205,9 @@ export default function AdminPage() {
         setClients(data.clients || []);
       }
 
-      // Also load images
+      // Also load images and videos
       await loadImages(token);
+      await loadVideos(token);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -519,6 +528,78 @@ export default function AdminPage() {
       setEditingPage({ ...editingPage, background_image: url });
     }
     setShowImageSelector(false);
+  };
+
+  // Video functions
+  const loadVideos = async (token: string) => {
+    try {
+      const response = await fetch('/api/videos', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUploadedVideos(data.videos || []);
+      }
+    } catch (error) {
+      console.error('Failed to load videos:', error);
+    }
+  };
+
+  const uploadVideo = async (file: File) => {
+    setUploadingVideo(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/videos', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        showMessage('success', 'Video uploaded!');
+        await loadVideos(authToken);
+        return data.url;
+      } else {
+        const errorData = await response.json();
+        showMessage('error', errorData.error || 'Failed to upload video');
+        return null;
+      }
+    } catch {
+      showMessage('error', 'Failed to upload video');
+      return null;
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
+  const deleteVideo = async (name: string) => {
+    if (!confirm('Are you sure you want to delete this video?')) return;
+
+    try {
+      const response = await fetch(`/api/videos?name=${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+
+      if (response.ok) {
+        showMessage('success', 'Video deleted!');
+        await loadVideos(authToken);
+      } else {
+        showMessage('error', 'Failed to delete video');
+      }
+    } catch {
+      showMessage('error', 'Failed to delete video');
+    }
+  };
+
+  const selectVideo = (url: string) => {
+    if (editingPage) {
+      setEditingPage({ ...editingPage, video_url: url });
+    }
+    setShowVideoSelector(false);
   };
 
   const fetchKlaviyoLists = async (apiKey: string) => {
@@ -1214,6 +1295,7 @@ export default function AdminPage() {
                       slug: '',
                       background_image: null,
                       background_color: '#1a1a2e',
+                      video_url: null,
                       headline: 'Exclusive Green Lifestyle Deals',
                       subheadline: 'Join our exclusive list for premium wellness deals.',
                       button_text: 'Get Exclusive Deals',
@@ -1477,6 +1559,143 @@ export default function AdminPage() {
                                       </div>
                                     ))}
                                   </div>
+                                </div>
+                              )}
+                            </motion.div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Video Upload Section */}
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">
+                          <Video className="w-4 h-4 inline mr-1" /> Landing Page Video (YouTube-style)
+                        </label>
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={editingPage?.video_url || ''}
+                              onChange={(e) => setEditingPage({ ...editingPage!, video_url: e.target.value || null })}
+                              className="flex-1 px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                              placeholder="Select or upload a video..."
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowVideoSelector(true)}
+                              className="px-4 py-3 rounded-xl bg-[var(--sage-light)] hover:bg-[var(--sage)]/30 text-[var(--forest)] flex items-center gap-2"
+                            >
+                              <Play className="w-5 h-5" />
+                              Browse
+                            </button>
+                          </div>
+                          {editingPage?.video_url && (
+                            <div className="relative w-48 h-28 rounded-lg overflow-hidden border-2 border-[var(--sage)]/30 bg-black">
+                              <video
+                                src={editingPage.video_url}
+                                className="w-full h-full object-cover"
+                                muted
+                                playsInline
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                <Play className="w-8 h-8 text-white" />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setEditingPage({ ...editingPage!, video_url: null })}
+                                className="absolute top-1 right-1 p-1 bg-red-500 rounded-full text-white"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Video Selector Modal */}
+                      <AnimatePresence>
+                        {showVideoSelector && (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+                            onClick={() => setShowVideoSelector(false)}
+                          >
+                            <motion.div
+                              initial={{ scale: 0.9, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0.9, opacity: 0 }}
+                              className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="flex justify-between items-center mb-4">
+                                <h3 className="font-display text-xl text-[var(--forest)]">Select Landing Page Video</h3>
+                                <button
+                                  onClick={() => setShowVideoSelector(false)}
+                                  className="p-2 hover:bg-gray-100 rounded-lg"
+                                >
+                                  <X className="w-5 h-5" />
+                                </button>
+                              </div>
+
+                              {/* Upload Section */}
+                              <div className="mb-4 p-4 border-2 border-dashed border-[var(--sage)]/50 rounded-xl">
+                                <label className="flex flex-col items-center cursor-pointer">
+                                  <Upload className="w-8 h-8 text-[var(--sage)] mb-2" />
+                                  <span className="text-sm text-[var(--forest)]/70">
+                                    {uploadingVideo ? 'Uploading...' : 'Click to upload new video (max 100MB)'}
+                                  </span>
+                                  <span className="text-xs text-[var(--forest)]/50 mt-1">
+                                    Supported: MP4, WebM, MOV
+                                  </span>
+                                  <input
+                                    type="file"
+                                    accept="video/mp4,video/webm,video/quicktime"
+                                    className="hidden"
+                                    disabled={uploadingVideo}
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const url = await uploadVideo(file);
+                                        if (url) {
+                                          selectVideo(url);
+                                        }
+                                      }
+                                    }}
+                                  />
+                                </label>
+                              </div>
+
+                              {/* Uploaded Videos */}
+                              {uploadedVideos.length > 0 ? (
+                                <div>
+                                  <h4 className="text-sm font-medium text-[var(--forest)]/70 mb-2">Uploaded Videos</h4>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {uploadedVideos.map((vid) => (
+                                      <div key={vid.name} className="relative group">
+                                        <button
+                                          onClick={() => selectVideo(vid.url)}
+                                          className="relative aspect-video rounded-lg overflow-hidden border-2 border-[var(--sage)]/30 hover:border-[var(--primary)] transition-colors w-full bg-black"
+                                        >
+                                          <video src={vid.url} className="w-full h-full object-cover" muted playsInline />
+                                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                            <Play className="w-8 h-8 text-white" />
+                                          </div>
+                                        </button>
+                                        <button
+                                          onClick={() => deleteVideo(vid.name)}
+                                          className="absolute top-1 right-1 p-1 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-center text-[var(--forest)]/50 py-8">
+                                  No videos uploaded yet. Upload your first video above.
                                 </div>
                               )}
                             </motion.div>

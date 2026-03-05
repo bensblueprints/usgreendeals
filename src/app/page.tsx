@@ -21,6 +21,7 @@ interface LandingPage {
   slug: string;
   background_image: string | null;
   background_color: string;
+  video_url: string | null;
   headline: string;
   subheadline: string;
   button_text: string;
@@ -195,8 +196,25 @@ export default function LandingPage() {
   }
 
   // Original light theme
+  const lightVideoUrl = landingPage?.video_url;
+
   return (
     <div className="min-h-screen gradient-mesh botanical-pattern relative overflow-hidden">
+      {/* Video Background for Light Theme */}
+      {lightVideoUrl && (
+        <div className="absolute inset-0 z-0">
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="w-full h-full object-cover"
+          >
+            <source src={lightVideoUrl} type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-[var(--background)]/80" />
+        </div>
+      )}
       {/* Floating organic shapes */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[10%] left-[5%] w-72 h-72 bg-[var(--sage)] rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
@@ -452,17 +470,32 @@ function DarkThemePage({
   handleSubmit: (e: React.FormEvent) => void;
 }) {
   const bgImage = landingPage?.background_image || '/gorilla-bg.png';
+  const videoUrl = landingPage?.video_url;
 
   return (
     <div
       className="min-h-screen relative overflow-hidden"
       style={{
-        backgroundImage: `url(${bgImage})`,
+        backgroundImage: videoUrl ? 'none' : `url(${bgImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundColor: landingPage?.background_color || '#1a1a2e',
       }}
     >
+      {/* Video Background */}
+      {videoUrl && (
+        <div className="absolute inset-0 z-0">
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="w-full h-full object-cover"
+          >
+            <source src={videoUrl} type="video/mp4" />
+          </video>
+        </div>
+      )}
       {/* Dark overlay for readability */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
 
