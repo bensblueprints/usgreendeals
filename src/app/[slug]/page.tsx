@@ -223,25 +223,8 @@ export default function SlugLandingPage() {
   }
 
   // Light theme
-  const lightVideoUrl = landingPage?.video_url;
-
   return (
     <div className="min-h-screen gradient-mesh botanical-pattern relative overflow-hidden">
-      {/* Video Background for Light Theme */}
-      {lightVideoUrl && (
-        <div className="absolute inset-0 z-0">
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="w-full h-full object-cover"
-          >
-            <source src={lightVideoUrl} type="video/mp4" />
-          </video>
-          <div className="absolute inset-0 bg-[var(--background)]/80" />
-        </div>
-      )}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[10%] left-[5%] w-72 h-72 bg-[var(--sage)] rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
         <div className="absolute top-[20%] right-[10%] w-96 h-96 bg-[var(--accent-light)] rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob delay-200" />
@@ -309,15 +292,36 @@ export default function SlugLandingPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.6 }}
-                className="text-center text-[var(--forest)]/70 mb-8 text-lg"
+                className="text-center text-[var(--forest)]/70 mb-6 text-lg"
               >
                 {landingPage?.subheadline || 'Join our exclusive list for premium wellness deals.'}
               </motion.p>
 
+              {/* Inline Video Player */}
+              {landingPage?.video_url && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.65 }}
+                  className="mb-6 rounded-2xl overflow-hidden shadow-lg"
+                >
+                  <video
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    controls
+                    className="w-full h-auto"
+                  >
+                    <source src={landingPage.video_url} type="video/mp4" />
+                  </video>
+                </motion.div>
+              )}
+
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.65 }}
+                transition={{ delay: 0.7 }}
                 className="flex items-center justify-center gap-2 mb-6 p-3 rounded-xl bg-[var(--cream)] border border-[var(--sage)]/20"
               >
                 <Shield className="w-5 h-5 text-[var(--primary)]" />
@@ -482,26 +486,12 @@ function DarkThemePage({
     <div
       className="min-h-screen relative overflow-hidden"
       style={{
-        backgroundImage: videoUrl ? 'none' : `url(${bgImage})`,
+        backgroundImage: `url(${bgImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundColor: landingPage?.background_color || '#1a1a2e',
       }}
     >
-      {/* Video Background */}
-      {videoUrl && (
-        <div className="absolute inset-0 z-0">
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="w-full h-full object-cover"
-          >
-            <source src={videoUrl} type="video/mp4" />
-          </video>
-        </div>
-      )}
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -577,15 +567,36 @@ function DarkThemePage({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.6 }}
-                className="text-center text-gray-300 mb-8 text-lg"
+                className="text-center text-gray-300 mb-6 text-lg"
               >
                 {landingPage?.subheadline || 'Premium deals for the elevated lifestyle.'}
               </motion.p>
 
+              {/* Inline Video Player */}
+              {videoUrl && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.65 }}
+                  className="mb-6 rounded-2xl overflow-hidden shadow-lg border border-white/20"
+                >
+                  <video
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    controls
+                    className="w-full h-auto"
+                  >
+                    <source src={videoUrl} type="video/mp4" />
+                  </video>
+                </motion.div>
+              )}
+
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.65 }}
+                transition={{ delay: 0.7 }}
                 className="flex items-center justify-center gap-2 mb-6 p-3 rounded-xl bg-white/5 border border-white/10"
               >
                 <Shield className="w-5 h-5 text-green-400" />

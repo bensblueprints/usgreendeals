@@ -8,6 +8,7 @@
   "/api/client-media/route": "/api/client-media",
   "/api/clients/route": "/api/clients",
   "/api/deals/route": "/api/deals",
+  "/api/deals/track/route": "/api/deals/track",
   "/api/debug/klaviyo/route": "/api/debug/klaviyo",
   "/api/debug/route": "/api/debug",
   "/api/images/route": "/api/images",

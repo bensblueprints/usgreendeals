@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Leaf,
@@ -8,13 +8,14 @@ import {
   CheckCircle,
   Star,
   Clock,
-  MapPin,
   ArrowRight,
   BadgeCheck,
   Lock,
   Users,
   Sparkles,
   ExternalLink,
+  Eye,
+  MousePointer,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -26,21 +27,68 @@ interface Deal {
   link: string;
   discount: string;
   active: boolean;
+  impressions?: number;
+  clicks?: number;
 }
 
 export default function DealsDirectory() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  const trackedDeals = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     fetch('/api/deals')
       .then(res => res.json())
       .then(data => {
-        setDeals(data.deals?.filter((d: Deal) => d.active) || []);
+        const activeDeals = data.deals?.filter((d: Deal) => d.active) ||
+                          (Array.isArray(data) ? data.filter((d: Deal) => d.active) : []);
+        setDeals(activeDeals);
         setLoading(false);
+
+        // Track impressions for visible deals
+        if (activeDeals.length > 0) {
+          const dealIds = activeDeals.map((d: Deal) => d.id);
+          trackImpressions(dealIds);
+        }
       })
       .catch(() => setLoading(false));
   }, []);
+
+  // Track impressions (batch)
+  const trackImpressions = async (dealIds: string[]) => {
+    const untracked = dealIds.filter(id => !trackedDeals.current.has(id));
+    if (untracked.length === 0) return;
+
+    untracked.forEach(id => trackedDeals.current.add(id));
+
+    try {
+      await fetch('/api/deals/track', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dealIds: untracked }),
+      });
+    } catch (error) {
+      console.error('Failed to track impressions:', error);
+    }
+  };
+
+  // Track individual click
+  const trackClick = async (dealId: string) => {
+    try {
+      await fetch('/api/deals/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dealId, type: 'click' }),
+      });
+    } catch (error) {
+      console.error('Failed to track click:', error);
+    }
+  };
+
+  const handleDealClick = (deal: Deal) => {
+    trackClick(deal.id);
+    window.open(deal.link, '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f0ede8]">
@@ -149,7 +197,7 @@ export default function DealsDirectory() {
         </div>
       </section>
 
-      {/* Deals Grid */}
+      {/* Deals Grid - 300x600 Banner Style */}
       <section className="py-16">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
@@ -163,13 +211,11 @@ export default function DealsDirectory() {
           </div>
 
           {loading ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-white rounded-2xl p-6 animate-pulse">
-                  <div className="w-full h-48 bg-gray-200 rounded-xl mb-4" />
-                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-2" />
-                  <div className="h-4 bg-gray-200 rounded w-full mb-4" />
-                  <div className="h-10 bg-gray-200 rounded-full" />
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-gray-200 rounded-2xl" style={{ aspectRatio: '300/600' }} />
+                  <div className="h-10 bg-gray-200 rounded-full mt-4" />
                 </div>
               ))}
             </div>
@@ -189,60 +235,59 @@ export default function DealsDirectory() {
               </Link>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {deals.map((deal, index) => (
                 <motion.div
                   key={deal.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow group"
+                  className="flex flex-col"
                 >
-                  <div className="relative">
+                  {/* 300x600 Banner Image */}
+                  <div
+                    className="relative rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow cursor-pointer group"
+                    style={{ aspectRatio: '300/600' }}
+                    onClick={() => handleDealClick(deal)}
+                  >
                     <img
                       src={deal.image_url || '/placeholder-deal.jpg'}
                       alt={deal.title}
-                      className="w-full h-48 object-cover"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    <div className="absolute top-3 left-3">
-                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-500 text-white text-sm font-semibold">
-                        {deal.discount}
-                      </span>
+                    {/* Overlay on hover */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-white font-semibold text-lg">View Deal</span>
                     </div>
+                    {/* Discount Badge */}
+                    {deal.discount && (
+                      <div className="absolute top-3 left-3">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-500 text-white text-sm font-semibold shadow-lg">
+                          {deal.discount}
+                        </span>
+                      </div>
+                    )}
+                    {/* Verified Badge */}
                     <div className="absolute top-3 right-3">
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/90 text-[#3d5a3d] text-xs font-medium">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/90 text-[#3d5a3d] text-xs font-medium shadow">
                         <BadgeCheck className="w-3 h-3" />
                         Verified
                       </span>
                     </div>
                   </div>
-                  <div className="p-5">
-                    <h3 className="font-semibold text-lg text-[#2d4a2d] mb-2 group-hover:text-[#3d5a3d] transition-colors">
+
+                  {/* Deal Title & CTA Button */}
+                  <div className="mt-4 text-center">
+                    <h3 className="font-semibold text-[#2d4a2d] mb-3 line-clamp-2 text-sm md:text-base">
                       {deal.title}
                     </h3>
-                    <p className="text-sm text-[#4a6a4a] mb-4 line-clamp-2">
-                      {deal.description}
-                    </p>
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className="w-4 h-4 text-yellow-400 fill-current"
-                          />
-                        ))}
-                      </div>
-                      <span className="text-xs text-[#4a6a4a]">(127 reviews)</span>
-                    </div>
-                    <a
-                      href={deal.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-[#3d5a3d] text-white font-medium hover:bg-[#4a7c4a] transition-colors"
+                    <button
+                      onClick={() => handleDealClick(deal)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-[#3d5a3d] text-white font-medium hover:bg-[#4a7c4a] transition-colors text-sm"
                     >
                       Claim Deal
                       <ExternalLink className="w-4 h-4" />
-                    </a>
+                    </button>
                   </div>
                 </motion.div>
               ))}

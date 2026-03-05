@@ -11,6 +11,7 @@ export interface Subscriber {
   synced_klaviyo: boolean;
   synced_ghl: boolean;
   landing_page_id?: string;
+  client_id?: string | null;
   utm_source?: string | null;
   utm_medium?: string | null;
   utm_campaign?: string | null;
@@ -113,6 +114,11 @@ export interface Deal {
   discount: string;
   active: boolean;
   sort_order: number;
+  client_id: string | null;
+  impressions: number;
+  clicks: number;
+  last_impression_at: string | null;
+  last_click_at: string | null;
   created_at: string;
 }
 
@@ -269,6 +275,7 @@ export async function saveDeal(deal: Partial<Deal> & { id?: string }): Promise<D
         discount: deal.discount,
         active: deal.active,
         sort_order: deal.sort_order,
+        client_id: deal.client_id || null,
       })
       .eq('id', deal.id)
       .select()
@@ -293,6 +300,9 @@ export async function saveDeal(deal: Partial<Deal> & { id?: string }): Promise<D
       discount: deal.discount,
       active: deal.active ?? true,
       sort_order: deal.sort_order ?? 0,
+      client_id: deal.client_id || null,
+      impressions: 0,
+      clicks: 0,
     })
     .select()
     .single();
@@ -303,6 +313,133 @@ export async function saveDeal(deal: Partial<Deal> & { id?: string }): Promise<D
   }
 
   return data;
+}
+
+// Get deals by client
+export async function getDealsByClient(clientId: string): Promise<Deal[]> {
+  const { data, error } = await supabaseAdmin
+    .from('deals')
+    .select('*')
+    .eq('client_id', clientId)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching client deals:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+// Get active deals by client
+export async function getActiveDealsByClient(clientId: string): Promise<Deal[]> {
+  const { data, error } = await supabaseAdmin
+    .from('deals')
+    .select('*')
+    .eq('client_id', clientId)
+    .eq('active', true)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching active client deals:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+// Increment deal impressions
+export async function incrementDealImpressions(dealId: string): Promise<void> {
+  try {
+    await supabaseAdmin.rpc('increment_deal_impressions', { deal_id: dealId });
+  } catch {
+    // Fallback: direct update
+    const { data } = await supabaseAdmin
+      .from('deals')
+      .select('impressions')
+      .eq('id', dealId)
+      .single();
+
+    if (data) {
+      await supabaseAdmin
+        .from('deals')
+        .update({
+          impressions: (data.impressions || 0) + 1,
+          last_impression_at: new Date().toISOString()
+        })
+        .eq('id', dealId);
+    }
+  }
+}
+
+// Increment deal clicks
+export async function incrementDealClicks(dealId: string): Promise<void> {
+  try {
+    await supabaseAdmin.rpc('increment_deal_clicks', { deal_id: dealId });
+  } catch {
+    // Fallback: direct update
+    const { data } = await supabaseAdmin
+      .from('deals')
+      .select('clicks')
+      .eq('id', dealId)
+      .single();
+
+    if (data) {
+      await supabaseAdmin
+        .from('deals')
+        .update({
+          clicks: (data.clicks || 0) + 1,
+          last_click_at: new Date().toISOString()
+        })
+        .eq('id', dealId);
+    }
+  }
+}
+
+// Record detailed deal impression
+export async function recordDealImpression(dealId: string, ipHash?: string, userAgent?: string, referrer?: string): Promise<void> {
+  await incrementDealImpressions(dealId);
+
+  // Also record detailed analytics
+  await supabaseAdmin
+    .from('deal_impressions')
+    .insert({
+      deal_id: dealId,
+      ip_hash: ipHash || null,
+      user_agent: userAgent || null,
+      referrer: referrer || null,
+    });
+}
+
+// Record detailed deal click
+export async function recordDealClick(dealId: string, ipHash?: string, userAgent?: string, referrer?: string): Promise<void> {
+  await incrementDealClicks(dealId);
+
+  // Also record detailed analytics
+  await supabaseAdmin
+    .from('deal_clicks')
+    .insert({
+      deal_id: dealId,
+      ip_hash: ipHash || null,
+      user_agent: userAgent || null,
+      referrer: referrer || null,
+    });
+}
+
+// Get subscribers by client
+export async function getSubscribersByClient(clientId: string): Promise<Subscriber[]> {
+  const { data, error } = await supabaseAdmin
+    .from('subscribers')
+    .select('*')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching client subscribers:', error);
+    return [];
+  }
+
+  return data || [];
 }
 
 export async function deleteDeal(id: string): Promise<void> {

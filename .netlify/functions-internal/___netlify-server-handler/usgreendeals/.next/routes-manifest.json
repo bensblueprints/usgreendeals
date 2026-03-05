@@ -94,6 +94,12 @@
       "namedRegex": "^/api/deals(?:/)?$"
     },
     {
+      "page": "/api/deals/track",
+      "regex": "^/api/deals/track(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/deals/track(?:/)?$"
+    },
+    {
       "page": "/api/debug",
       "regex": "^/api/debug(?:/)?$",
       "routeKeys": {},

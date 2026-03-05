@@ -8,6 +8,7 @@
   "/api/client-media/route": "app/api/client-media/route.js",
   "/api/clients/route": "app/api/clients/route.js",
   "/api/deals/route": "app/api/deals/route.js",
+  "/api/deals/track/route": "app/api/deals/track/route.js",
   "/api/debug/klaviyo/route": "app/api/debug/klaviyo/route.js",
   "/api/debug/route": "app/api/debug/route.js",
   "/api/images/route": "app/api/images/route.js",

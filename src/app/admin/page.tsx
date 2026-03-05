@@ -49,6 +49,9 @@ interface Deal {
   discount: string;
   active: boolean;
   sort_order: number;
+  client_id: string | null;
+  impressions: number;
+  clicks: number;
 }
 
 interface Subscriber {
@@ -61,6 +64,7 @@ interface Subscriber {
   synced_klaviyo: boolean;
   synced_ghl: boolean;
   landing_page_id: string | null;
+  client_id: string | null;
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
@@ -1146,8 +1150,21 @@ export default function AdminPage() {
 
         {activeTab === 'deals' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-4">
               <h2 className="font-display text-2xl text-[var(--forest)]">Manage Deals</h2>
+              <div className="flex items-center gap-3">
+                <select
+                  value={selectedClientFilter}
+                  onChange={(e) => setSelectedClientFilter(e.target.value)}
+                  className="px-4 py-2 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)] text-sm"
+                >
+                  <option value="all">All Clients</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
               <button
                 onClick={() => {
                   setIsCreatingDeal(true);
@@ -1159,6 +1176,9 @@ export default function AdminPage() {
                     discount: '',
                     active: true,
                     sort_order: deals.length,
+                    client_id: selectedClientFilter !== 'all' ? selectedClientFilter : null,
+                    impressions: 0,
+                    clicks: 0,
                   });
                 }}
                 className="btn-primary px-6 py-3 rounded-xl text-white font-medium flex items-center gap-2"
@@ -1166,6 +1186,7 @@ export default function AdminPage() {
                 <Plus className="w-5 h-5" />
                 Add Deal
               </button>
+              </div>
             </div>
 
             {/* Deal Editor Modal */}
@@ -1227,7 +1248,9 @@ export default function AdminPage() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Image URL</label>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">
+                          Image URL <span className="text-xs text-gray-500">(300x600px recommended)</span>
+                        </label>
                         <input
                           type="url"
                           value={editingDeal?.image_url || ''}
@@ -1235,6 +1258,23 @@ export default function AdminPage() {
                           className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
                           placeholder="https://..."
                         />
+                        <p className="text-xs text-gray-500 mt-1">Upload a 300x600px vertical banner image for best display</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Client</label>
+                        <select
+                          value={editingDeal?.client_id || ''}
+                          onChange={(e) => setEditingDeal({ ...editingDeal!, client_id: e.target.value || null })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                        >
+                          <option value="">No Client (Global Deal)</option>
+                          {clients.map((client) => (
+                            <option key={client.id} value={client.id}>
+                              {client.name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
                       <div>
@@ -1312,7 +1352,9 @@ export default function AdminPage() {
                   <p className="text-[var(--forest)]/60">No deals yet. Add your first deal!</p>
                 </div>
               ) : (
-                deals.map((deal) => (
+                deals
+                  .filter(deal => selectedClientFilter === 'all' || deal.client_id === selectedClientFilter)
+                  .map((deal) => (
                   <div
                     key={deal.id}
                     className={`bg-white rounded-2xl p-5 flex items-center gap-4 ${
@@ -1323,16 +1365,17 @@ export default function AdminPage() {
                       <img
                         src={deal.image_url}
                         alt={deal.title}
-                        className="w-20 h-20 object-cover rounded-xl"
+                        className="w-16 h-32 object-cover rounded-xl"
+                        style={{ aspectRatio: '300/600' }}
                       />
                     ) : (
-                      <div className="w-20 h-20 bg-[var(--sage-light)] rounded-xl flex items-center justify-center">
-                        <Tag className="w-8 h-8 text-[var(--sage)]" />
+                      <div className="w-16 h-32 bg-[var(--sage-light)] rounded-xl flex items-center justify-center" style={{ aspectRatio: '300/600' }}>
+                        <Tag className="w-6 h-6 text-[var(--sage)]" />
                       </div>
                     )}
 
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold text-[var(--forest)]">{deal.title}</h3>
                         {deal.discount && (
                           <span className="px-2 py-1 text-xs rounded-full bg-[var(--primary)] text-white">
@@ -1344,8 +1387,31 @@ export default function AdminPage() {
                             Inactive
                           </span>
                         )}
+                        {deal.client_id && (
+                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600">
+                            {clients.find(c => c.id === deal.client_id)?.name || 'Unknown Client'}
+                          </span>
+                        )}
                       </div>
-                      <p className="text-sm text-[var(--forest)]/60 line-clamp-1">{deal.description}</p>
+                      <p className="text-sm text-[var(--forest)]/60 line-clamp-1 mt-1">{deal.description}</p>
+
+                      {/* Impressions & Clicks Stats */}
+                      <div className="flex items-center gap-4 mt-2 text-xs text-[var(--forest)]/60">
+                        <div className="flex items-center gap-1">
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>{deal.impressions || 0} impressions</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>{deal.clicks || 0} clicks</span>
+                        </div>
+                        {deal.impressions > 0 && (
+                          <div className="flex items-center gap-1">
+                            <BarChart3 className="w-3.5 h-3.5" />
+                            <span>{((deal.clicks || 0) / deal.impressions * 100).toFixed(1)}% CTR</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-2">
