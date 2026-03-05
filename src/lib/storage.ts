@@ -49,6 +49,7 @@ export interface LandingPage {
   client_id: string | null;
   klaviyo_list_id: string | null;
   show_logo: boolean;
+  logo_url: string | null;
   thank_you_page_id: string | null;
   created_at: string;
   updated_at: string;
@@ -503,28 +504,44 @@ export interface LandingPageWithRelations extends LandingPage {
 }
 
 export async function getLandingPageBySlugWithRelations(slug: string): Promise<LandingPageWithRelations | null> {
-  const { data, error } = await supabaseAdmin
+  // First get the landing page
+  const { data: landingPage, error } = await supabaseAdmin
     .from('landing_pages')
-    .select(`
-      *,
-      clients:client_id (*),
-      thank_you_pages:thank_you_page_id (*)
-    `)
+    .select('*')
     .eq('slug', slug)
     .single();
 
-  if (error) {
-    console.error('Error fetching landing page with relations:', error);
+  if (error || !landingPage) {
+    console.error('Error fetching landing page:', error);
     return null;
   }
 
-  if (!data) return null;
+  // Fetch client if exists
+  let client: Client | null = null;
+  if (landingPage.client_id) {
+    const { data: clientData } = await supabaseAdmin
+      .from('clients')
+      .select('*')
+      .eq('id', landingPage.client_id)
+      .single();
+    client = clientData || null;
+  }
 
-  // Transform to match our interface
+  // Fetch thank you page if exists
+  let thankYouPage: ThankYouPage | null = null;
+  if (landingPage.thank_you_page_id) {
+    const { data: tyPageData } = await supabaseAdmin
+      .from('thank_you_pages')
+      .select('*')
+      .eq('id', landingPage.thank_you_page_id)
+      .single();
+    thankYouPage = tyPageData || null;
+  }
+
   return {
-    ...data,
-    client: data.clients || null,
-    thank_you_page: data.thank_you_pages || null,
+    ...landingPage,
+    client,
+    thank_you_page: thankYouPage,
   };
 }
 
@@ -564,6 +581,7 @@ export async function saveLandingPage(page: Partial<LandingPage> & { id?: string
         client_id: page.client_id || null,
         klaviyo_list_id: page.klaviyo_list_id || null,
         show_logo: page.show_logo ?? false,
+        logo_url: page.logo_url || null,
         thank_you_page_id: page.thank_you_page_id || null,
         updated_at: new Date().toISOString(),
       })
@@ -599,6 +617,7 @@ export async function saveLandingPage(page: Partial<LandingPage> & { id?: string
       client_id: page.client_id || null,
       klaviyo_list_id: page.klaviyo_list_id || null,
       show_logo: page.show_logo ?? false,
+      logo_url: page.logo_url || null,
       thank_you_page_id: page.thank_you_page_id || null,
     })
     .select()

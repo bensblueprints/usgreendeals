@@ -44,6 +44,7 @@ interface LandingPage {
   client_id: string | null;
   klaviyo_list_id: string | null;
   show_logo: boolean;
+  logo_url: string | null;
   thank_you_page_id: string | null;
   client?: Client | null;
   thank_you_page?: ThankYouPageRef | null;
@@ -216,8 +217,8 @@ export default function SlugLandingPage() {
       error={error}
       handleSubmit={handleSubmit}
       showLogo={landingPage?.show_logo || false}
-      clientLogo={landingPage?.client?.logo_url || null}
-      clientName={landingPage?.client?.name || null}
+      clientLogo={landingPage?.logo_url || null}
+      clientName={landingPage?.name || null}
     />;
   }
 
@@ -254,10 +255,10 @@ export default function SlugLandingPage() {
           transition={{ duration: 0.8 }}
           className="mb-8"
         >
-          {landingPage?.show_logo && landingPage?.client?.logo_url ? (
+          {landingPage?.show_logo && landingPage?.logo_url ? (
             <img
-              src={landingPage.client.logo_url}
-              alt={landingPage.client.name || 'Logo'}
+              src={landingPage.logo_url}
+              alt={landingPage.name || 'Logo'}
               className="h-16 md:h-20 w-auto object-contain"
             />
           ) : (

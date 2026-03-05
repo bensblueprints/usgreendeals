@@ -95,6 +95,7 @@ interface LandingPage {
   client_id: string | null;
   klaviyo_list_id: string | null;
   show_logo: boolean;
+  logo_url: string | null;
   thank_you_page_id: string | null;
 }
 
@@ -1567,6 +1568,7 @@ export default function AdminPage() {
                       client_id: selectedClientFilter !== 'all' ? selectedClientFilter : defaultClient?.id || null,
                       klaviyo_list_id: null,
                       show_logo: false,
+                      logo_url: null,
                       thank_you_page_id: null,
                     });
                   }}
@@ -2024,7 +2026,7 @@ export default function AdminPage() {
                       </div>
 
                       {/* Show Logo Option */}
-                      <div className="p-4 bg-purple-50 rounded-xl">
+                      <div className="p-4 bg-purple-50 rounded-xl space-y-4">
                         <div className="flex items-start gap-3">
                           <input
                             type="checkbox"
@@ -2036,13 +2038,67 @@ export default function AdminPage() {
                           <div className="flex-1">
                             <label htmlFor="show-logo" className="text-sm font-medium text-purple-900 flex items-center gap-2">
                               <ImageIcon className="w-4 h-4" />
-                              Show Client Logo
+                              Show Logo
                             </label>
                             <p className="text-xs text-purple-700 mt-1">
-                              Display the client&apos;s logo on this landing page
+                              Display a logo at the top of this landing page
                             </p>
                           </div>
                         </div>
+
+                        {/* Logo Upload */}
+                        {editingPage?.show_logo && (
+                          <div className="pt-3 border-t border-purple-200">
+                            <label className="block text-sm font-medium text-purple-900 mb-2">
+                              Logo Image
+                            </label>
+                            {editingPage.logo_url && (
+                              <div className="mb-3 p-2 bg-white rounded-lg inline-block">
+                                <img
+                                  src={editingPage.logo_url}
+                                  alt="Logo preview"
+                                  className="h-12 w-auto object-contain"
+                                />
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={editingPage.logo_url || ''}
+                                onChange={(e) => setEditingPage({ ...editingPage!, logo_url: e.target.value || null })}
+                                placeholder="https://... or upload below"
+                                className="flex-1 px-3 py-2 rounded-lg border-2 border-purple-200 focus:border-purple-400 text-sm"
+                              />
+                            </div>
+                            <div className="mt-2">
+                              <input
+                                type="file"
+                                accept="image/*,.gif"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+
+                                  const formData = new FormData();
+                                  formData.append('file', file);
+
+                                  try {
+                                    const res = await fetch('/api/images', {
+                                      method: 'POST',
+                                      body: formData,
+                                    });
+                                    const data = await res.json();
+                                    if (data.url) {
+                                      setEditingPage({ ...editingPage!, logo_url: data.url });
+                                    }
+                                  } catch (err) {
+                                    console.error('Logo upload failed:', err);
+                                  }
+                                }}
+                                className="text-sm text-purple-700"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Thank You Page Selection */}

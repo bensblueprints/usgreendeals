@@ -2,8 +2,9 @@
 -- ENTERPRISE PAGE MANAGEMENT SYSTEM
 -- ============================================
 
--- 1. Add show_logo and thank_you_page_id to landing_pages
+-- 1. Add show_logo, logo_url, and thank_you_page_id to landing_pages
 ALTER TABLE landing_pages ADD COLUMN IF NOT EXISTS show_logo BOOLEAN DEFAULT false;
+ALTER TABLE landing_pages ADD COLUMN IF NOT EXISTS logo_url TEXT;
 ALTER TABLE landing_pages ADD COLUMN IF NOT EXISTS thank_you_page_id UUID;
 
 -- 2. Create thank_you_pages table (mirrors landing_pages structure)
