@@ -2,8 +2,9 @@
 -- CLIENT RELATIONS - SUBSCRIBERS, DEALS & IMPRESSIONS
 -- ============================================
 
--- 1. Add client_id to subscribers table
+-- 1. Add client_id and klaviyo_list_id to subscribers table
 ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE SET NULL;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS klaviyo_list_id TEXT;
 
 -- 2. Add client_id to deals table
 ALTER TABLE deals ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE SET NULL;

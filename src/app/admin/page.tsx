@@ -38,6 +38,11 @@ import {
   Link2,
   ArrowRight,
   ExternalLink,
+  Megaphone,
+  Facebook,
+  ChevronLeft,
+  ChevronRight,
+  Rocket,
 } from 'lucide-react';
 
 interface Deal {
@@ -65,6 +70,7 @@ interface Subscriber {
   synced_ghl: boolean;
   landing_page_id: string | null;
   client_id: string | null;
+  klaviyo_list_id: string | null;
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
@@ -140,9 +146,28 @@ interface Client {
   slug: string;
   klaviyo_api_key: string | null;
   klaviyo_list_id: string | null;
+  klaviyo_api_key_2: string | null;
+  klaviyo_list_id_2: string | null;
+  fb_ad_account_id: string | null;
+  fb_access_token: string | null;
+  fb_page_id: string | null;
   logo_url: string | null;
   active: boolean;
   is_default?: boolean;
+}
+
+interface AdCreative {
+  id: string;
+  client_id: string;
+  name: string;
+  image_url: string;
+  headline: string;
+  primary_text: string;
+  description: string;
+  link_url: string;
+  call_to_action: string;
+  status: 'draft' | 'active' | 'paused';
+  created_at: string;
 }
 
 export default function AdminPage() {
@@ -151,7 +176,8 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState('');
   const [authToken, setAuthToken] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'deals' | 'subscribers' | 'landing-pages' | 'thank-you-pages' | 'clients' | 'media' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'deals' | 'subscribers' | 'landing-pages' | 'thank-you-pages' | 'clients' | 'media' | 'ads-library' | 'settings'>('dashboard');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Deals state
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -173,6 +199,7 @@ export default function AdminPage() {
   const [uploadedImages, setUploadedImages] = useState<{ name: string; url: string }[]>([]);
   const [showImageSelector, setShowImageSelector] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageSelectorMode, setImageSelectorMode] = useState<'background' | 'logo'>('background');
 
   // Videos state
   const [uploadedVideos, setUploadedVideos] = useState<{ name: string; url: string }[]>([]);
@@ -186,6 +213,7 @@ export default function AdminPage() {
   const [klaviyoLists, setKlaviyoLists] = useState<{ id: string; name: string }[]>([]);
   const [loadingLists, setLoadingLists] = useState(false);
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>('all');
+  const [subscriberListFilter, setSubscriberListFilter] = useState<string>('');
   const [pageLists, setPageLists] = useState<{ id: string; name: string }[]>([]);
   const [loadingPageLists, setLoadingPageLists] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -202,6 +230,12 @@ export default function AdminPage() {
   const [mediaFolder, setMediaFolder] = useState<string>('general');
   const [showClientMediaBrowser, setShowClientMediaBrowser] = useState(false);
   const [mediaBrowserCallback, setMediaBrowserCallback] = useState<((url: string) => void) | null>(null);
+
+  // Ads Library state
+  const [adCreatives, setAdCreatives] = useState<AdCreative[]>([]);
+  const [editingAdCreative, setEditingAdCreative] = useState<AdCreative | null>(null);
+  const [isCreatingAdCreative, setIsCreatingAdCreative] = useState(false);
+  const [selectedAdClient, setSelectedAdClient] = useState<string>('');
 
   // Settings state
   const [settings, setSettings] = useState<SettingsData>({
@@ -589,9 +623,19 @@ export default function AdminPage() {
 
   const selectImage = (url: string) => {
     if (editingPage) {
-      setEditingPage({ ...editingPage, background_image: url });
+      if (imageSelectorMode === 'logo') {
+        setEditingPage({ ...editingPage, logo_url: url });
+      } else {
+        setEditingPage({ ...editingPage, background_image: url });
+      }
     }
     setShowImageSelector(false);
+    setImageSelectorMode('background');
+  };
+
+  const openImageSelector = (mode: 'background' | 'logo') => {
+    setImageSelectorMode(mode);
+    setShowImageSelector(true);
   };
 
   // Video functions
@@ -973,35 +1017,50 @@ export default function AdminPage() {
         )}
       </AnimatePresence>
 
-      {/* Tabs */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
-          {[
-            { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-            { key: 'landing-pages', label: 'Landing Pages', icon: Layers },
-            { key: 'thank-you-pages', label: 'Thank You Pages', icon: Heart },
-            { key: 'clients', label: 'Clients', icon: Users },
-            { key: 'media', label: 'Media Library', icon: FolderOpen },
-            { key: 'subscribers', label: 'Subscribers', icon: Mail },
-            { key: 'deals', label: 'Deals', icon: Tag },
-            { key: 'settings', label: 'Settings', icon: Settings },
-          ].map(({ key, label, icon: Icon }) => (
+      {/* Main Layout with Sidebar */}
+      <div className="flex min-h-[calc(100vh-80px)]">
+        {/* Vertical Sidebar */}
+        <aside className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-[var(--sage)]/20 flex flex-col transition-all duration-300 flex-shrink-0`}>
+          <div className="p-4 border-b border-[var(--sage)]/20 flex items-center justify-between">
+            {!sidebarCollapsed && <span className="font-semibold text-[var(--forest)]">Navigation</span>}
             <button
-              key={key}
-              onClick={() => setActiveTab(key as typeof activeTab)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all whitespace-nowrap ${
-                activeTab === key
-                  ? 'bg-gradient-to-r from-[var(--primary)] to-[var(--moss)] text-white shadow-lg'
-                  : 'bg-white hover:bg-[var(--sage-light)]/50 text-[var(--forest)]'
-              }`}
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="p-2 hover:bg-[var(--sage-light)]/50 rounded-lg transition-colors"
             >
-              <Icon className="w-5 h-5" />
-              {label}
+              {sidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
             </button>
-          ))}
-        </div>
+          </div>
+          <nav className="flex-1 py-4 overflow-y-auto">
+            {[
+              { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+              { key: 'landing-pages', label: 'Landing Pages', icon: Layers },
+              { key: 'thank-you-pages', label: 'Thank You', icon: Heart },
+              { key: 'clients', label: 'Clients', icon: Users },
+              { key: 'media', label: 'Media Library', icon: FolderOpen },
+              { key: 'ads-library', label: 'Ads Library', icon: Megaphone },
+              { key: 'subscribers', label: 'Subscribers', icon: Mail },
+              { key: 'deals', label: 'Deals', icon: Tag },
+              { key: 'settings', label: 'Settings', icon: Settings },
+            ].map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key as typeof activeTab)}
+                className={`w-full flex items-center gap-3 px-4 py-3 transition-all ${
+                  activeTab === key
+                    ? 'bg-gradient-to-r from-[var(--primary)] to-[var(--moss)] text-white'
+                    : 'hover:bg-[var(--sage-light)]/50 text-[var(--forest)]'
+                } ${sidebarCollapsed ? 'justify-center' : ''}`}
+                title={sidebarCollapsed ? label : undefined}
+              >
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                {!sidebarCollapsed && <span className="font-medium">{label}</span>}
+              </button>
+            ))}
+          </nav>
+        </aside>
 
-        {/* Deals Tab */}
+        {/* Main Content Area */}
+        <main className="flex-1 p-6 overflow-y-auto bg-[var(--cream)]/30">
         {/* Dashboard Tab */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
@@ -1438,17 +1497,46 @@ export default function AdminPage() {
         {/* Subscribers Tab */}
         {activeTab === 'subscribers' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-4">
               <h2 className="font-display text-2xl text-[var(--forest)]">
-                Subscribers ({subscribers.length})
+                Subscribers ({subscribers.filter(s =>
+                  (selectedClientFilter === 'all' || s.client_id === selectedClientFilter) &&
+                  (!subscriberListFilter || s.klaviyo_list_id === subscriberListFilter)
+                ).length})
               </h2>
-              <button
-                onClick={exportSubscribers}
-                className="px-6 py-3 rounded-xl bg-white hover:bg-[var(--sage-light)]/50 text-[var(--forest)] font-medium flex items-center gap-2 border border-[var(--sage)]/30"
-              >
-                <Download className="w-5 h-5" />
-                Export CSV
-              </button>
+              <div className="flex items-center gap-3 flex-wrap">
+                <select
+                  value={selectedClientFilter}
+                  onChange={(e) => setSelectedClientFilter(e.target.value)}
+                  className="px-4 py-2 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)] text-sm"
+                >
+                  <option value="all">All Clients</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={subscriberListFilter}
+                  onChange={(e) => setSubscriberListFilter(e.target.value)}
+                  className="px-4 py-2 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)] text-sm"
+                >
+                  <option value="">All Lists</option>
+                  {[...new Set(subscribers.map(s => s.klaviyo_list_id).filter(Boolean))].map((listId) => (
+                    <option key={listId} value={listId!}>
+                      {listId}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={exportSubscribers}
+                  className="px-6 py-2 rounded-xl bg-white hover:bg-[var(--sage-light)]/50 text-[var(--forest)] font-medium flex items-center gap-2 border border-[var(--sage)]/30"
+                >
+                  <Download className="w-5 h-5" />
+                  Export CSV
+                </button>
+              </div>
             </div>
 
             <div className="bg-white rounded-2xl overflow-hidden">
@@ -1465,14 +1553,21 @@ export default function AdminPage() {
                         <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Email</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Name</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Zip</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Client</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">List</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Source</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Date</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Klaviyo</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Synced</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--forest)]">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--sage)]/10">
-                      {subscribers.map((sub) => (
+                      {subscribers
+                        .filter(s =>
+                          (selectedClientFilter === 'all' || s.client_id === selectedClientFilter) &&
+                          (!subscriberListFilter || s.klaviyo_list_id === subscriberListFilter)
+                        )
+                        .map((sub) => (
                         <tr key={sub.id} className="hover:bg-[var(--sage-light)]/20">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
@@ -1485,6 +1580,24 @@ export default function AdminPage() {
                           </td>
                           <td className="px-4 py-3">
                             <span className="text-sm text-[var(--forest)]">{sub.zip_code || '-'}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {sub.client_id ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                {clients.find(c => c.id === sub.client_id)?.name || 'Unknown'}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {sub.klaviyo_list_id ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800" title={sub.klaviyo_list_id}>
+                                {sub.klaviyo_list_id.slice(0, 8)}...
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             {sub.utm_source ? (
@@ -1804,7 +1917,10 @@ export default function AdminPage() {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
-                            onClick={() => setShowImageSelector(false)}
+                            onClick={() => {
+                              setShowImageSelector(false);
+                              setImageSelectorMode('background');
+                            }}
                           >
                             <motion.div
                               initial={{ scale: 0.9, opacity: 0 }}
@@ -1814,9 +1930,14 @@ export default function AdminPage() {
                               onClick={(e) => e.stopPropagation()}
                             >
                               <div className="flex justify-between items-center mb-4">
-                                <h3 className="font-display text-xl text-[var(--forest)]">Select Background Image</h3>
+                                <h3 className="font-display text-xl text-[var(--forest)]">
+                                  {imageSelectorMode === 'logo' ? 'Select Logo Image' : 'Select Background Image'}
+                                </h3>
                                 <button
-                                  onClick={() => setShowImageSelector(false)}
+                                  onClick={() => {
+                                    setShowImageSelector(false);
+                                    setImageSelectorMode('background');
+                                  }}
                                   className="p-2 hover:bg-gray-100 rounded-lg"
                                 >
                                   <X className="w-5 h-5" />
@@ -1832,7 +1953,7 @@ export default function AdminPage() {
                                   </span>
                                   <input
                                     type="file"
-                                    accept="image/*"
+                                    accept="image/*,.gif"
                                     className="hidden"
                                     disabled={uploadingImage}
                                     onChange={async (e) => {
@@ -2119,12 +2240,19 @@ export default function AdminPage() {
                               Logo Image
                             </label>
                             {editingPage.logo_url && (
-                              <div className="mb-3 p-2 bg-white rounded-lg inline-block">
+                              <div className="mb-3 p-2 bg-white rounded-lg inline-flex items-center gap-2">
                                 <img
                                   src={editingPage.logo_url}
                                   alt="Logo preview"
                                   className="h-12 w-auto object-contain"
                                 />
+                                <button
+                                  onClick={() => setEditingPage({ ...editingPage!, logo_url: null })}
+                                  className="p-1 hover:bg-red-100 rounded text-red-500"
+                                  title="Remove logo"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
                               </div>
                             )}
                             <div className="flex gap-2">
@@ -2132,36 +2260,55 @@ export default function AdminPage() {
                                 type="text"
                                 value={editingPage.logo_url || ''}
                                 onChange={(e) => setEditingPage({ ...editingPage!, logo_url: e.target.value || null })}
-                                placeholder="https://... or upload below"
+                                placeholder="https://... or upload/browse"
                                 className="flex-1 px-3 py-2 rounded-lg border-2 border-purple-200 focus:border-purple-400 text-sm"
                               />
+                              <button
+                                type="button"
+                                onClick={() => openImageSelector('logo')}
+                                className="px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm font-medium flex items-center gap-1"
+                              >
+                                <FolderOpen className="w-4 h-4" />
+                                Browse
+                              </button>
                             </div>
-                            <div className="mt-2">
-                              <input
-                                type="file"
-                                accept="image/*,.gif"
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  if (!file) return;
+                            <div className="mt-2 flex items-center gap-2">
+                              <label className="flex-1 flex items-center justify-center px-3 py-2 border-2 border-dashed border-purple-200 rounded-lg cursor-pointer hover:border-purple-400 transition-colors">
+                                <Upload className="w-4 h-4 mr-2 text-purple-500" />
+                                <span className="text-sm text-purple-700">Upload new image</span>
+                                <input
+                                  type="file"
+                                  accept="image/*,.gif"
+                                  className="hidden"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
 
-                                  const formData = new FormData();
-                                  formData.append('file', file);
+                                    const formData = new FormData();
+                                    formData.append('file', file);
 
-                                  try {
-                                    const res = await fetch('/api/images', {
-                                      method: 'POST',
-                                      body: formData,
-                                    });
-                                    const data = await res.json();
-                                    if (data.url) {
-                                      setEditingPage({ ...editingPage!, logo_url: data.url });
+                                    try {
+                                      const res = await fetch('/api/images', {
+                                        method: 'POST',
+                                        headers: {
+                                          'Authorization': `Bearer ${authToken}`,
+                                        },
+                                        body: formData,
+                                      });
+                                      const data = await res.json();
+                                      if (data.url) {
+                                        setEditingPage({ ...editingPage!, logo_url: data.url });
+                                        showMessage('success', 'Logo uploaded!');
+                                      } else {
+                                        showMessage('error', data.error || 'Failed to upload logo');
+                                      }
+                                    } catch (err) {
+                                      console.error('Logo upload failed:', err);
+                                      showMessage('error', 'Failed to upload logo');
                                     }
-                                  } catch (err) {
-                                    console.error('Logo upload failed:', err);
-                                  }
-                                }}
-                                className="text-sm text-purple-700"
-                              />
+                                  }}
+                                />
+                              </label>
                             </div>
                           </div>
                         )}
@@ -2997,6 +3144,11 @@ export default function AdminPage() {
                     slug: '',
                     klaviyo_api_key: null,
                     klaviyo_list_id: null,
+                    klaviyo_api_key_2: null,
+                    klaviyo_list_id_2: null,
+                    fb_ad_account_id: null,
+                    fb_access_token: null,
+                    fb_page_id: null,
                     logo_url: null,
                     active: true,
                   });
@@ -3201,6 +3353,105 @@ export default function AdminPage() {
                         )}
                       </div>
 
+                      {/* Secondary Klaviyo Account */}
+                      <div className="pt-4 border-t border-[var(--sage)]/30">
+                        <h4 className="text-sm font-semibold text-[var(--forest)] mb-3 flex items-center gap-2">
+                          <Mail className="w-4 h-4" />
+                          Secondary Klaviyo Account (Optional)
+                        </h4>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Klaviyo API Key #2</label>
+                            <input
+                              type="password"
+                              value={editingClient?.klaviyo_api_key_2 || ''}
+                              onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_api_key_2: e.target.value || null })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                              placeholder="pk_..."
+                            />
+                            <p className="text-xs text-[var(--forest)]/50 mt-1">
+                              Subscribers will sync to both accounts
+                            </p>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Klaviyo List #2</label>
+                            <input
+                              type="text"
+                              value={editingClient?.klaviyo_list_id_2 || ''}
+                              onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_list_id_2: e.target.value || null })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                              placeholder="Enter List ID"
+                              disabled={!editingClient?.klaviyo_api_key_2}
+                            />
+                            {editingClient?.klaviyo_list_id_2 && (
+                              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" />
+                                Secondary List ID: {editingClient.klaviyo_list_id_2}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Facebook Ads Settings */}
+                      <div className="pt-4 border-t border-[var(--sage)]/30">
+                        <h4 className="text-sm font-semibold text-[var(--forest)] mb-3 flex items-center gap-2">
+                          <Megaphone className="w-4 h-4" />
+                          Facebook Ads Settings (Optional)
+                        </h4>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Ad Account ID</label>
+                            <input
+                              type="text"
+                              value={editingClient?.fb_ad_account_id || ''}
+                              onChange={(e) => setEditingClient({ ...editingClient!, fb_ad_account_id: e.target.value || null })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                              placeholder="act_123456789"
+                            />
+                            <p className="text-xs text-[var(--forest)]/50 mt-1">
+                              Find this in Facebook Business Manager
+                            </p>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Access Token</label>
+                            <input
+                              type="password"
+                              value={editingClient?.fb_access_token || ''}
+                              onChange={(e) => setEditingClient({ ...editingClient!, fb_access_token: e.target.value || null })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                              placeholder="EAAG..."
+                            />
+                            <p className="text-xs text-[var(--forest)]/50 mt-1">
+                              Long-lived token from Facebook Graph API Explorer
+                            </p>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Page ID (Optional)</label>
+                            <input
+                              type="text"
+                              value={editingClient?.fb_page_id || ''}
+                              onChange={(e) => setEditingClient({ ...editingClient!, fb_page_id: e.target.value || null })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                              placeholder="123456789012345"
+                            />
+                            <p className="text-xs text-[var(--forest)]/50 mt-1">
+                              Facebook Page ID for the ads to run from
+                            </p>
+                          </div>
+
+                          {editingClient?.fb_ad_account_id && editingClient?.fb_access_token && (
+                            <p className="text-xs text-green-600 flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              Facebook Ads configured - ready to create campaigns!
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
                       <div className="flex items-center gap-3">
                         <input
                           type="checkbox"
@@ -3402,6 +3653,311 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* Ads Library Tab */}
+        {activeTab === 'ads-library' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="font-display text-2xl text-[var(--forest)]">Facebook Ads Library</h2>
+                <p className="text-[var(--forest)]/70">Create and manage ad campaigns for each client</p>
+              </div>
+              <div className="flex gap-3">
+                <select
+                  value={selectedAdClient}
+                  onChange={(e) => setSelectedAdClient(e.target.value)}
+                  className="px-4 py-2 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                >
+                  <option value="">All Clients</option>
+                  {clients.filter(c => c.active).map((client) => (
+                    <option key={client.id} value={client.id}>{client.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => {
+                    if (!selectedAdClient) {
+                      showMessage('error', 'Please select a client first');
+                      return;
+                    }
+                    setIsCreatingAdCreative(true);
+                    setEditingAdCreative({
+                      id: '',
+                      client_id: selectedAdClient,
+                      name: '',
+                      image_url: '',
+                      headline: '',
+                      primary_text: '',
+                      description: '',
+                      link_url: '',
+                      call_to_action: 'LEARN_MORE',
+                      status: 'draft',
+                      created_at: new Date().toISOString(),
+                    });
+                  }}
+                  className="btn-primary px-6 py-2 rounded-xl text-white font-medium flex items-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  New Ad Creative
+                </button>
+              </div>
+            </div>
+
+            {/* Client FB Setup Notice */}
+            {selectedAdClient && (() => {
+              const selectedClientData = clients.find(c => c.id === selectedAdClient);
+              if (!selectedClientData?.fb_ad_account_id || !selectedClientData?.fb_access_token) {
+                return (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-yellow-800">Facebook Not Configured</h4>
+                        <p className="text-sm text-yellow-700 mt-1">
+                          This client needs Facebook Ad Account ID and Access Token configured in the Clients section.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setActiveTab('clients');
+                            setEditingClient(selectedClientData || null);
+                          }}
+                          className="text-sm text-yellow-800 underline mt-2 flex items-center gap-1"
+                        >
+                          Configure now <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Ad Creatives Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {adCreatives
+                .filter(ad => !selectedAdClient || ad.client_id === selectedAdClient)
+                .map((ad) => (
+                  <div key={ad.id} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow">
+                    {ad.image_url ? (
+                      <div className="aspect-square bg-gray-100 relative">
+                        <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
+                        <div className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${
+                          ad.status === 'active' ? 'bg-green-100 text-green-800' :
+                          ad.status === 'paused' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {ad.status}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="aspect-square bg-gray-100 flex items-center justify-center">
+                        <ImageIcon className="w-12 h-12 text-gray-300" />
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <h3 className="font-semibold text-[var(--forest)] truncate">{ad.name || 'Untitled Ad'}</h3>
+                      <p className="text-sm text-[var(--forest)]/60 truncate">{ad.headline}</p>
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => {
+                            setEditingAdCreative(ad);
+                            setIsCreatingAdCreative(false);
+                          }}
+                          className="flex-1 px-3 py-2 bg-[var(--sage-light)]/50 rounded-lg text-[var(--forest)] text-sm font-medium flex items-center justify-center gap-1"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            const client = clients.find(c => c.id === ad.client_id);
+                            if (!client?.fb_ad_account_id || !client?.fb_access_token) {
+                              showMessage('error', 'Configure Facebook credentials in Client settings first');
+                              return;
+                            }
+                            showMessage('success', 'Campaign creation coming soon!');
+                          }}
+                          className="flex-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg text-white text-sm font-medium flex items-center justify-center gap-1"
+                        >
+                          <Rocket className="w-4 h-4" />
+                          Launch
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+              {/* Empty state */}
+              {adCreatives.filter(ad => !selectedAdClient || ad.client_id === selectedAdClient).length === 0 && (
+                <div className="col-span-full bg-white rounded-2xl p-12 text-center">
+                  <Megaphone className="w-16 h-16 text-[var(--sage)] mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-[var(--forest)] mb-2">No Ad Creatives Yet</h3>
+                  <p className="text-[var(--forest)]/60 mb-4">
+                    {selectedAdClient ? 'Create your first ad creative for this client' : 'Select a client and create your first ad creative'}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Ad Creative Editor Modal */}
+            <AnimatePresence>
+              {(editingAdCreative || isCreatingAdCreative) && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                  onClick={() => {
+                    setEditingAdCreative(null);
+                    setIsCreatingAdCreative(false);
+                  }}
+                >
+                  <motion.div
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.95, opacity: 0 }}
+                    className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="font-display text-xl text-[var(--forest)]">
+                        {isCreatingAdCreative ? 'Create Ad Creative' : 'Edit Ad Creative'}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setEditingAdCreative(null);
+                          setIsCreatingAdCreative(false);
+                        }}
+                        className="p-2 hover:bg-gray-100 rounded-lg"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Ad Name</label>
+                        <input
+                          type="text"
+                          value={editingAdCreative?.name || ''}
+                          onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, name: e.target.value })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                          placeholder="e.g., Summer Sale - Product A"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Image URL</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editingAdCreative?.image_url || ''}
+                            onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, image_url: e.target.value })}
+                            className="flex-1 px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            placeholder="https://..."
+                          />
+                          <button
+                            onClick={() => {
+                              openImageSelector('background');
+                              setMediaBrowserCallback(() => (url: string) => {
+                                setEditingAdCreative({ ...editingAdCreative!, image_url: url });
+                              });
+                            }}
+                            className="px-4 py-3 bg-[var(--sage-light)]/50 rounded-xl hover:bg-[var(--sage-light)]"
+                          >
+                            <FolderOpen className="w-5 h-5" />
+                          </button>
+                        </div>
+                        {editingAdCreative?.image_url && (
+                          <div className="mt-2 aspect-video bg-gray-100 rounded-xl overflow-hidden max-w-xs">
+                            <img src={editingAdCreative.image_url} alt="Preview" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Headline</label>
+                        <input
+                          type="text"
+                          value={editingAdCreative?.headline || ''}
+                          onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, headline: e.target.value })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                          placeholder="Attention-grabbing headline"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Primary Text</label>
+                        <textarea
+                          value={editingAdCreative?.primary_text || ''}
+                          onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, primary_text: e.target.value })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)] resize-none"
+                          rows={3}
+                          placeholder="Main ad copy that appears above the image"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Description</label>
+                        <input
+                          type="text"
+                          value={editingAdCreative?.description || ''}
+                          onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, description: e.target.value })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                          placeholder="Short description below headline"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Destination URL</label>
+                        <input
+                          type="text"
+                          value={editingAdCreative?.link_url || ''}
+                          onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, link_url: e.target.value })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                          placeholder="https://yoursite.com/landing-page"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Call to Action</label>
+                        <select
+                          value={editingAdCreative?.call_to_action || 'LEARN_MORE'}
+                          onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, call_to_action: e.target.value })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                        >
+                          <option value="LEARN_MORE">Learn More</option>
+                          <option value="SHOP_NOW">Shop Now</option>
+                          <option value="SIGN_UP">Sign Up</option>
+                          <option value="SUBSCRIBE">Subscribe</option>
+                          <option value="GET_OFFER">Get Offer</option>
+                          <option value="CONTACT_US">Contact Us</option>
+                          <option value="DOWNLOAD">Download</option>
+                          <option value="BOOK_NOW">Book Now</option>
+                        </select>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          // Save ad creative - for now just show success
+                          showMessage('success', isCreatingAdCreative ? 'Ad creative created!' : 'Ad creative updated!');
+                          setEditingAdCreative(null);
+                          setIsCreatingAdCreative(false);
+                        }}
+                        className="w-full btn-primary py-3 rounded-xl text-white font-medium flex items-center justify-center gap-2"
+                      >
+                        <Save className="w-5 h-5" />
+                        {isCreatingAdCreative ? 'Create Ad Creative' : 'Save Changes'}
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+        </main>
+      </div>
+
         {/* Debug Panel */}
         {showDebugPanel && (
           <div className="fixed bottom-0 left-0 right-0 bg-gray-900 text-green-400 font-mono text-xs max-h-64 overflow-auto z-50 border-t-2 border-green-500">
@@ -3447,7 +4003,6 @@ export default function AdminPage() {
         >
           {showDebugPanel ? '🔽 Hide Debug' : '🔼 Show Debug'}
         </button>
-      </div>
     </div>
   );
 }

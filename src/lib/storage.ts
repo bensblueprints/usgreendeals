@@ -10,8 +10,9 @@ export interface Subscriber {
   source: string;
   synced_klaviyo: boolean;
   synced_ghl: boolean;
-  landing_page_id?: string;
+  landing_page_id?: string | null;
   client_id?: string | null;
+  klaviyo_list_id?: string | null;
   utm_source?: string | null;
   utm_medium?: string | null;
   utm_campaign?: string | null;
@@ -98,6 +99,11 @@ export interface Client {
   slug: string;
   klaviyo_api_key: string | null;
   klaviyo_list_id: string | null;
+  klaviyo_api_key_2: string | null;
+  klaviyo_list_id_2: string | null;
+  fb_ad_account_id: string | null;
+  fb_access_token: string | null;
+  fb_page_id: string | null;
   logo_url: string | null;
   active: boolean;
   is_default: boolean;
@@ -1027,6 +1033,11 @@ export async function saveClient(client: Partial<Client> & { id?: string }): Pro
         slug: client.slug,
         klaviyo_api_key: client.klaviyo_api_key,
         klaviyo_list_id: client.klaviyo_list_id,
+        klaviyo_api_key_2: client.klaviyo_api_key_2,
+        klaviyo_list_id_2: client.klaviyo_list_id_2,
+        fb_ad_account_id: client.fb_ad_account_id,
+        fb_access_token: client.fb_access_token,
+        fb_page_id: client.fb_page_id,
         logo_url: client.logo_url,
         active: client.active,
         updated_at: new Date().toISOString(),
@@ -1054,6 +1065,11 @@ export async function saveClient(client: Partial<Client> & { id?: string }): Pro
       slug: client.slug,
       klaviyo_api_key: client.klaviyo_api_key || null,
       klaviyo_list_id: client.klaviyo_list_id || null,
+      klaviyo_api_key_2: client.klaviyo_api_key_2 || null,
+      klaviyo_list_id_2: client.klaviyo_list_id_2 || null,
+      fb_ad_account_id: client.fb_ad_account_id || null,
+      fb_access_token: client.fb_access_token || null,
+      fb_page_id: client.fb_page_id || null,
       logo_url: client.logo_url || null,
       active: client.active ?? true,
       is_default: isFirstClient,
@@ -1077,21 +1093,20 @@ export async function deleteClient(id: string): Promise<void> {
 }
 
 // Sync to client-specific Klaviyo with a specific list
-export async function syncToClientKlaviyo(subscriber: Subscriber, client: Client, listId?: string): Promise<boolean> {
-  const targetListId = listId || client.klaviyo_list_id;
-
-  if (!client.klaviyo_api_key || !targetListId) {
-    console.log('Client Klaviyo not configured or no list specified');
-    return false;
-  }
-
-  console.log('=== KLAVIYO API CALL ===');
+// Helper function to sync to a specific Klaviyo account
+async function syncToKlaviyoAccount(
+  subscriber: Subscriber,
+  apiKey: string,
+  listId: string,
+  accountLabel: string = 'Primary'
+): Promise<boolean> {
+  console.log(`=== KLAVIYO API CALL (${accountLabel}) ===`);
   console.log('Subscriber data:', {
     email: subscriber.email,
     first_name: subscriber.first_name,
     zip_code: subscriber.zip_code,
   });
-  console.log('Target list:', targetListId);
+  console.log('Target list:', listId);
 
   try {
     // Step 1: Create/update the profile with full data using Profiles API
@@ -1114,7 +1129,7 @@ export async function syncToClientKlaviyo(subscriber: Subscriber, client: Client
     const profileResponse = await fetch('https://a.klaviyo.com/api/profiles/', {
       method: 'POST',
       headers: {
-        'Authorization': `Klaviyo-API-Key ${client.klaviyo_api_key}`,
+        'Authorization': `Klaviyo-API-Key ${apiKey}`,
         'Content-Type': 'application/json',
         'revision': '2024-02-15',
       },
@@ -1157,7 +1172,7 @@ export async function syncToClientKlaviyo(subscriber: Subscriber, client: Client
         await fetch(`https://a.klaviyo.com/api/profiles/${profileId}/`, {
           method: 'PATCH',
           headers: {
-            'Authorization': `Klaviyo-API-Key ${client.klaviyo_api_key}`,
+            'Authorization': `Klaviyo-API-Key ${apiKey}`,
             'Content-Type': 'application/json',
             'revision': '2024-02-15',
           },
@@ -1195,7 +1210,7 @@ export async function syncToClientKlaviyo(subscriber: Subscriber, client: Client
           list: {
             data: {
               type: 'list',
-              id: targetListId,
+              id: listId,
             },
           },
         },
@@ -1206,7 +1221,7 @@ export async function syncToClientKlaviyo(subscriber: Subscriber, client: Client
     const subscribeResponse = await fetch('https://a.klaviyo.com/api/profile-subscription-bulk-create-jobs/', {
       method: 'POST',
       headers: {
-        'Authorization': `Klaviyo-API-Key ${client.klaviyo_api_key}`,
+        'Authorization': `Klaviyo-API-Key ${apiKey}`,
         'Content-Type': 'application/json',
         'revision': '2024-02-15',
       },
@@ -1218,13 +1233,36 @@ export async function syncToClientKlaviyo(subscriber: Subscriber, client: Client
     console.log('Subscribe response:', subscribeText);
 
     if (subscribeResponse.ok || subscribeResponse.status === 202) {
-      console.log('=== KLAVIYO SYNC SUCCESS ===');
+      console.log(`=== KLAVIYO SYNC SUCCESS (${accountLabel}) ===`);
       return true;
     }
-    console.error('Client Klaviyo sync failed:', subscribeText);
+    console.error(`Klaviyo sync failed (${accountLabel}):`, subscribeText);
     return false;
   } catch (error) {
-    console.error('Client Klaviyo sync error:', error);
+    console.error(`Klaviyo sync error (${accountLabel}):`, error);
     return false;
   }
+}
+
+export async function syncToClientKlaviyo(subscriber: Subscriber, client: Client, listId?: string): Promise<boolean> {
+  const results: boolean[] = [];
+
+  // Sync to primary Klaviyo account
+  const primaryListId = listId || client.klaviyo_list_id;
+  if (client.klaviyo_api_key && primaryListId) {
+    const primaryResult = await syncToKlaviyoAccount(subscriber, client.klaviyo_api_key, primaryListId, 'Primary');
+    results.push(primaryResult);
+  } else {
+    console.log('Primary Klaviyo account not configured or no list specified');
+  }
+
+  // Sync to secondary Klaviyo account if configured
+  if (client.klaviyo_api_key_2 && client.klaviyo_list_id_2) {
+    console.log('Syncing to secondary Klaviyo account...');
+    const secondaryResult = await syncToKlaviyoAccount(subscriber, client.klaviyo_api_key_2, client.klaviyo_list_id_2, 'Secondary');
+    results.push(secondaryResult);
+  }
+
+  // Return true if at least one sync was successful
+  return results.length > 0 && results.some(r => r === true);
 }

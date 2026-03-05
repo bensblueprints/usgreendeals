@@ -44,12 +44,43 @@ export async function POST(request: NextRequest) {
     }
 
     // Track landing page conversion if provided
+    let clientId: string | null = null;
+    let klaviyoListId: string | null = null;
+
     if (landingPageId) {
-      // Update subscriber with landing page reference
-      await supabaseAdmin
+      const landingPage = await getLandingPageById(landingPageId);
+      console.log('=== CLIENT TRACKING DEBUG ===');
+      console.log('Landing page ID:', landingPageId);
+      console.log('Landing page found:', landingPage ? { id: landingPage.id, name: landingPage.name, client_id: landingPage.client_id } : 'NULL');
+
+      clientId = landingPage?.client_id || null;
+      klaviyoListId = landingPage?.klaviyo_list_id || null;
+
+      // If landing page doesn't have its own list, use client's default list
+      if (!klaviyoListId && clientId) {
+        const client = await getClientById(clientId);
+        klaviyoListId = client?.klaviyo_list_id || null;
+      }
+
+      console.log('Client ID to save:', clientId);
+      console.log('Klaviyo List ID to save:', klaviyoListId);
+
+      // Update subscriber with landing page reference, client, and list
+      const { error: updateError } = await supabaseAdmin
         .from('subscribers')
-        .update({ landing_page_id: landingPageId })
+        .update({
+          landing_page_id: landingPageId,
+          client_id: clientId,
+          klaviyo_list_id: klaviyoListId,
+        })
         .eq('id', subscriber.id);
+
+      if (updateError) {
+        console.error('Error updating subscriber with client info:', updateError);
+      } else {
+        console.log('Successfully updated subscriber with client_id:', clientId);
+      }
+      console.log('=== END CLIENT TRACKING DEBUG ===');
 
       // Increment conversion count
       await incrementConversionsDirectly(landingPageId);
