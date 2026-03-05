@@ -244,7 +244,9 @@ export default function AdminPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isCreatingClient, setIsCreatingClient] = useState(false);
   const [klaviyoLists, setKlaviyoLists] = useState<{ id: string; name: string }[]>([]);
+  const [klaviyoLists2, setKlaviyoLists2] = useState<{ id: string; name: string }[]>([]);
   const [loadingLists, setLoadingLists] = useState(false);
+  const [loadingLists2, setLoadingLists2] = useState(false);
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>('all');
   const [subscriberListFilter, setSubscriberListFilter] = useState<string>('');
   const [pageLists, setPageLists] = useState<{ id: string; name: string }[]>([]);
@@ -779,6 +781,33 @@ export default function AdminPage() {
       setKlaviyoLists([]);
     }
   }, [editingClient?.klaviyo_api_key]);
+
+  // Fetch Klaviyo lists for secondary API key
+  useEffect(() => {
+    if (editingClient?.klaviyo_api_key_2) {
+      const timeoutId = setTimeout(async () => {
+        setLoadingLists2(true);
+        try {
+          const response = await fetch(`/api/klaviyo?api_key=${encodeURIComponent(editingClient.klaviyo_api_key_2 || '')}`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setKlaviyoLists2(data.lists || []);
+          } else {
+            setKlaviyoLists2([]);
+          }
+        } catch {
+          setKlaviyoLists2([]);
+        } finally {
+          setLoadingLists2(false);
+        }
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    } else {
+      setKlaviyoLists2([]);
+    }
+  }, [editingClient?.klaviyo_api_key_2, authToken]);
 
   // Fetch Klaviyo lists for landing page's client
   const fetchPageClientLists = async (clientId: string) => {
@@ -3446,14 +3475,40 @@ export default function AdminPage() {
                             </div>
                             <div>
                               <label className="block text-sm font-medium text-[var(--forest)] mb-1">Klaviyo List #2</label>
-                              <input
-                                type="text"
-                                value={editingClient?.klaviyo_list_id_2 || ''}
-                                onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_list_id_2: e.target.value || null })}
-                                className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                                placeholder="Enter List ID"
-                                disabled={!editingClient?.klaviyo_api_key_2}
-                              />
+                              {loadingLists2 ? (
+                                <div className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 bg-gray-50 flex items-center gap-2">
+                                  <div className="w-4 h-4 border-2 border-[var(--primary)]/30 border-t-[var(--primary)] rounded-full animate-spin" />
+                                  <span className="text-sm text-[var(--forest)]/60">Loading lists...</span>
+                                </div>
+                              ) : klaviyoLists2.length > 0 ? (
+                                <select
+                                  value={editingClient?.klaviyo_list_id_2 || ''}
+                                  onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_list_id_2: e.target.value || null })}
+                                  className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                                >
+                                  <option value="">Select a list...</option>
+                                  {klaviyoLists2.map((list) => (
+                                    <option key={list.id} value={list.id}>
+                                      {list.name} ({list.id})
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={editingClient?.klaviyo_list_id_2 || ''}
+                                  onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_list_id_2: e.target.value || null })}
+                                  className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                                  placeholder={editingClient?.klaviyo_api_key_2 ? 'No lists found' : 'Enter API key first'}
+                                  disabled={!editingClient?.klaviyo_api_key_2}
+                                />
+                              )}
+                              {editingClient?.klaviyo_list_id_2 && (
+                                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                                  <CheckCircle className="w-3 h-3" />
+                                  Secondary List ID: {editingClient.klaviyo_list_id_2}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </div>
