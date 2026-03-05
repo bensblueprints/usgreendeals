@@ -11,6 +11,7 @@
   "/api/deals/track/route": "app/api/deals/track/route.js",
   "/api/debug/klaviyo/route": "app/api/debug/klaviyo/route.js",
   "/api/debug/route": "app/api/debug/route.js",
+  "/api/facebook/launch-campaign/route": "app/api/facebook/launch-campaign/route.js",
   "/api/images/route": "app/api/images/route.js",
   "/api/klaviyo/route": "app/api/klaviyo/route.js",
   "/api/klaviyo/sync/route": "app/api/klaviyo/sync/route.js",

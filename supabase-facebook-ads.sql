@@ -6,6 +6,7 @@
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS fb_ad_account_id TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS fb_access_token TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS fb_page_id TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS fb_pixel_id TEXT;
 
 -- 2. Create ad_creatives table for storing ad assets
 CREATE TABLE IF NOT EXISTS ad_creatives (

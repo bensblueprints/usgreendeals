@@ -44,6 +44,12 @@ import {
   ChevronRight,
   Rocket,
   Sparkles,
+  DollarSign,
+  Target,
+  Calendar,
+  Globe,
+  TrendingUp,
+  BarChart2,
 } from 'lucide-react';
 
 interface Deal {
@@ -152,6 +158,7 @@ interface Client {
   fb_ad_account_id: string | null;
   fb_access_token: string | null;
   fb_page_id: string | null;
+  fb_pixel_id: string | null;
   logo_url: string | null;
   active: boolean;
   is_default?: boolean;
@@ -167,8 +174,33 @@ interface AdCreative {
   description: string;
   link_url: string;
   call_to_action: string;
-  status: 'draft' | 'active' | 'paused';
+  status: 'draft' | 'active' | 'paused' | 'published';
   created_at: string;
+  // Campaign Settings
+  budget_type: 'daily' | 'lifetime';
+  daily_budget: number;
+  lifetime_budget: number;
+  start_date: string;
+  end_date: string;
+  // Targeting
+  age_min: number;
+  age_max: number;
+  genders: ('male' | 'female' | 'all')[];
+  locations: string[];
+  interests: string[];
+  optimization_goal: 'CONVERSIONS' | 'LINK_CLICKS' | 'IMPRESSIONS' | 'REACH' | 'LANDING_PAGE_VIEWS';
+  // Facebook IDs (after publishing)
+  fb_campaign_id: string | null;
+  fb_adset_id: string | null;
+  fb_ad_id: string | null;
+  // Performance Metrics
+  impressions: number;
+  clicks: number;
+  spend: number;
+  conversions: number;
+  ctr: number;
+  cpc: number;
+  last_synced_at: string | null;
 }
 
 export default function AdminPage() {
@@ -3170,6 +3202,7 @@ export default function AdminPage() {
                     fb_ad_account_id: null,
                     fb_access_token: null,
                     fb_page_id: null,
+                    fb_pixel_id: null,
                     logo_url: null,
                     active: true,
                   });
@@ -3464,10 +3497,30 @@ export default function AdminPage() {
                             </p>
                           </div>
 
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Facebook Pixel ID</label>
+                            <input
+                              type="text"
+                              value={editingClient?.fb_pixel_id || ''}
+                              onChange={(e) => setEditingClient({ ...editingClient!, fb_pixel_id: e.target.value || null })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                              placeholder="123456789012345"
+                            />
+                            <p className="text-xs text-[var(--forest)]/50 mt-1">
+                              Pixel ID for tracking conversions on landing pages
+                            </p>
+                          </div>
+
                           {editingClient?.fb_ad_account_id && editingClient?.fb_access_token && (
                             <p className="text-xs text-green-600 flex items-center gap-1">
                               <CheckCircle className="w-3 h-3" />
                               Facebook Ads configured - ready to create campaigns!
+                            </p>
+                          )}
+                          {editingClient?.fb_pixel_id && (
+                            <p className="text-xs text-blue-600 flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              Pixel tracking enabled on landing pages
                             </p>
                           )}
                         </div>
@@ -3712,6 +3765,31 @@ export default function AdminPage() {
                       call_to_action: 'LEARN_MORE',
                       status: 'draft',
                       created_at: new Date().toISOString(),
+                      // Campaign Settings
+                      budget_type: 'daily',
+                      daily_budget: 20,
+                      lifetime_budget: 500,
+                      start_date: new Date().toISOString().split('T')[0],
+                      end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                      // Targeting
+                      age_min: 25,
+                      age_max: 55,
+                      genders: ['all'],
+                      locations: ['US'],
+                      interests: [],
+                      optimization_goal: 'CONVERSIONS',
+                      // Facebook IDs
+                      fb_campaign_id: null,
+                      fb_adset_id: null,
+                      fb_ad_id: null,
+                      // Performance
+                      impressions: 0,
+                      clicks: 0,
+                      spend: 0,
+                      conversions: 0,
+                      ctr: 0,
+                      cpc: 0,
+                      last_synced_at: null,
                     });
                   }}
                   className="btn-primary px-6 py-2 rounded-xl text-white font-medium flex items-center gap-2"
@@ -3976,18 +4054,246 @@ export default function AdminPage() {
                         </select>
                       </div>
 
-                      <button
-                        onClick={() => {
-                          // Save ad creative - for now just show success
-                          showMessage('success', isCreatingAdCreative ? 'Ad creative created!' : 'Ad creative updated!');
-                          setEditingAdCreative(null);
-                          setIsCreatingAdCreative(false);
-                        }}
-                        className="w-full btn-primary py-3 rounded-xl text-white font-medium flex items-center justify-center gap-2"
-                      >
-                        <Save className="w-5 h-5" />
-                        {isCreatingAdCreative ? 'Create Ad Creative' : 'Save Changes'}
-                      </button>
+                      {/* Budget & Schedule Section */}
+                      <div className="border-t border-[var(--sage)]/20 pt-4 mt-4">
+                        <h4 className="font-medium text-[var(--forest)] mb-3 flex items-center gap-2">
+                          <DollarSign className="w-4 h-4" />
+                          Budget & Schedule
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Budget Type</label>
+                            <select
+                              value={editingAdCreative?.budget_type || 'daily'}
+                              onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, budget_type: e.target.value as 'daily' | 'lifetime' })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            >
+                              <option value="daily">Daily Budget</option>
+                              <option value="lifetime">Lifetime Budget</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">
+                              {editingAdCreative?.budget_type === 'lifetime' ? 'Lifetime Budget ($)' : 'Daily Budget ($)'}
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={editingAdCreative?.budget_type === 'lifetime' ? editingAdCreative?.lifetime_budget || 500 : editingAdCreative?.daily_budget || 20}
+                              onChange={(e) => {
+                                if (editingAdCreative?.budget_type === 'lifetime') {
+                                  setEditingAdCreative({ ...editingAdCreative!, lifetime_budget: parseFloat(e.target.value) || 0 });
+                                } else {
+                                  setEditingAdCreative({ ...editingAdCreative!, daily_budget: parseFloat(e.target.value) || 0 });
+                                }
+                              }}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Start Date</label>
+                            <input
+                              type="date"
+                              value={editingAdCreative?.start_date || ''}
+                              onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, start_date: e.target.value })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">End Date</label>
+                            <input
+                              type="date"
+                              value={editingAdCreative?.end_date || ''}
+                              onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, end_date: e.target.value })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Targeting Section */}
+                      <div className="border-t border-[var(--sage)]/20 pt-4 mt-4">
+                        <h4 className="font-medium text-[var(--forest)] mb-3 flex items-center gap-2">
+                          <Target className="w-4 h-4" />
+                          Targeting
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Age Range</label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min="18"
+                                max="65"
+                                value={editingAdCreative?.age_min || 25}
+                                onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, age_min: parseInt(e.target.value) || 18 })}
+                                className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                                placeholder="Min"
+                              />
+                              <span className="text-[var(--forest)]/60">to</span>
+                              <input
+                                type="number"
+                                min="18"
+                                max="65"
+                                value={editingAdCreative?.age_max || 55}
+                                onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, age_max: parseInt(e.target.value) || 65 })}
+                                className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                                placeholder="Max"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Gender</label>
+                            <select
+                              value={editingAdCreative?.genders?.[0] || 'all'}
+                              onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, genders: [e.target.value as 'male' | 'female' | 'all'] })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            >
+                              <option value="all">All Genders</option>
+                              <option value="male">Male Only</option>
+                              <option value="female">Female Only</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Locations</label>
+                            <input
+                              type="text"
+                              value={editingAdCreative?.locations?.join(', ') || 'US'}
+                              onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, locations: e.target.value.split(',').map(s => s.trim()) })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                              placeholder="US, CA, UK"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Optimization Goal</label>
+                            <select
+                              value={editingAdCreative?.optimization_goal || 'CONVERSIONS'}
+                              onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, optimization_goal: e.target.value as AdCreative['optimization_goal'] })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            >
+                              <option value="CONVERSIONS">Conversions</option>
+                              <option value="LINK_CLICKS">Link Clicks</option>
+                              <option value="LANDING_PAGE_VIEWS">Landing Page Views</option>
+                              <option value="IMPRESSIONS">Impressions</option>
+                              <option value="REACH">Reach</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Interests (comma separated)</label>
+                          <input
+                            type="text"
+                            value={editingAdCreative?.interests?.join(', ') || ''}
+                            onChange={(e) => setEditingAdCreative({ ...editingAdCreative!, interests: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            placeholder="e.g., cannabis, wellness, CBD, health"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Performance Metrics (if published) */}
+                      {editingAdCreative?.fb_campaign_id && (
+                        <div className="border-t border-[var(--sage)]/20 pt-4 mt-4">
+                          <h4 className="font-medium text-[var(--forest)] mb-3 flex items-center gap-2">
+                            <BarChart2 className="w-4 h-4" />
+                            Performance
+                            {editingAdCreative?.last_synced_at && (
+                              <span className="text-xs text-[var(--forest)]/50 ml-auto">
+                                Last updated: {new Date(editingAdCreative.last_synced_at).toLocaleString()}
+                              </span>
+                            )}
+                          </h4>
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="bg-blue-50 p-3 rounded-xl text-center">
+                              <p className="text-2xl font-bold text-blue-600">{(editingAdCreative?.impressions || 0).toLocaleString()}</p>
+                              <p className="text-xs text-blue-600/70">Impressions</p>
+                            </div>
+                            <div className="bg-green-50 p-3 rounded-xl text-center">
+                              <p className="text-2xl font-bold text-green-600">{(editingAdCreative?.clicks || 0).toLocaleString()}</p>
+                              <p className="text-xs text-green-600/70">Clicks</p>
+                            </div>
+                            <div className="bg-purple-50 p-3 rounded-xl text-center">
+                              <p className="text-2xl font-bold text-purple-600">{((editingAdCreative?.ctr || 0) * 100).toFixed(2)}%</p>
+                              <p className="text-xs text-purple-600/70">CTR</p>
+                            </div>
+                            <div className="bg-orange-50 p-3 rounded-xl text-center">
+                              <p className="text-2xl font-bold text-orange-600">${(editingAdCreative?.spend || 0).toFixed(2)}</p>
+                              <p className="text-xs text-orange-600/70">Spend</p>
+                            </div>
+                            <div className="bg-teal-50 p-3 rounded-xl text-center">
+                              <p className="text-2xl font-bold text-teal-600">{(editingAdCreative?.conversions || 0).toLocaleString()}</p>
+                              <p className="text-xs text-teal-600/70">Conversions</p>
+                            </div>
+                            <div className="bg-pink-50 p-3 rounded-xl text-center">
+                              <p className="text-2xl font-bold text-pink-600">${(editingAdCreative?.cpc || 0).toFixed(2)}</p>
+                              <p className="text-xs text-pink-600/70">CPC</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-3 mt-6">
+                        <button
+                          onClick={() => {
+                            // Save ad creative - for now just show success
+                            showMessage('success', isCreatingAdCreative ? 'Ad creative created!' : 'Ad creative updated!');
+                            setEditingAdCreative(null);
+                            setIsCreatingAdCreative(false);
+                          }}
+                          className="flex-1 btn-primary py-3 rounded-xl text-white font-medium flex items-center justify-center gap-2"
+                        >
+                          <Save className="w-5 h-5" />
+                          {isCreatingAdCreative ? 'Save Draft' : 'Save Changes'}
+                        </button>
+                        {!editingAdCreative?.fb_campaign_id && (
+                          <button
+                            onClick={async () => {
+                              const client = clients.find(c => c.id === editingAdCreative?.client_id);
+                              if (!client?.fb_ad_account_id || !client?.fb_access_token) {
+                                showMessage('error', 'Configure Facebook credentials in Client settings first');
+                                return;
+                              }
+                              if (!editingAdCreative?.image_url || !editingAdCreative?.headline || !editingAdCreative?.link_url) {
+                                showMessage('error', 'Please fill in image, headline, and destination URL');
+                                return;
+                              }
+                              try {
+                                const response = await fetch('/api/facebook/launch-campaign', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    Authorization: `Bearer ${authToken}`,
+                                  },
+                                  body: JSON.stringify({
+                                    creative: editingAdCreative,
+                                    client: client,
+                                  }),
+                                });
+                                const result = await response.json();
+                                if (response.ok) {
+                                  showMessage('success', 'Campaign launched successfully!');
+                                  setEditingAdCreative({
+                                    ...editingAdCreative!,
+                                    status: 'published',
+                                    fb_campaign_id: result.campaign_id,
+                                    fb_adset_id: result.adset_id,
+                                    fb_ad_id: result.ad_id,
+                                  });
+                                } else {
+                                  showMessage('error', result.error || 'Failed to launch campaign');
+                                }
+                              } catch {
+                                showMessage('error', 'Failed to launch campaign');
+                              }
+                            }}
+                            className="flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
+                          >
+                            <Rocket className="w-5 h-5" />
+                            Launch Campaign
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 </motion.div>

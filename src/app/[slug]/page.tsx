@@ -5,12 +5,17 @@ import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Leaf, Mail, CheckCircle, ArrowRight, Sparkles, Shield, MapPin } from 'lucide-react';
 
-// Declare gtag for TypeScript
+// Declare gtag and fbq for TypeScript
 declare global {
   interface Window {
     gtag?: (
       command: 'event' | 'config' | 'js',
       action: string | Date,
+      params?: Record<string, unknown>
+    ) => void;
+    fbq?: (
+      command: 'track' | 'init' | 'trackCustom',
+      event: string,
       params?: Record<string, unknown>
     ) => void;
   }
@@ -21,6 +26,7 @@ interface Client {
   name: string;
   slug: string;
   logo_url: string | null;
+  fb_pixel_id: string | null;
 }
 
 interface ThankYouPageRef {
@@ -103,6 +109,32 @@ export default function SlugLandingPage() {
                 landing_page_theme: data.page.theme,
               });
             }
+            // Initialize Facebook Pixel if client has one configured
+            const pixelId = data.page.client?.fb_pixel_id;
+            if (pixelId && typeof window !== 'undefined') {
+              // Load Facebook Pixel script dynamically
+              if (!document.getElementById('fb-pixel-script')) {
+                const script = document.createElement('script');
+                script.id = 'fb-pixel-script';
+                script.innerHTML = `
+                  !function(f,b,e,v,n,t,s)
+                  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+                  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+                  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+                  n.queue=[];t=b.createElement(e);t.async=!0;
+                  t.src=v;s=b.getElementsByTagName(e)[0];
+                  s.parentNode.insertBefore(t,s)}(window, document,'script',
+                  'https://connect.facebook.net/en_US/fbevents.js');
+                  fbq('init', '${pixelId}');
+                  fbq('track', 'PageView');
+                `;
+                document.head.appendChild(script);
+                // Add noscript fallback
+                const noscript = document.createElement('noscript');
+                noscript.innerHTML = `<img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"/>`;
+                document.body.appendChild(noscript);
+              }
+            }
             // Increment views
             fetch(`/api/landing-pages?action=increment-views&id=${data.page.id}`, { method: 'POST' });
           } else {
@@ -160,6 +192,14 @@ export default function SlugLandingPage() {
           event_label: landingPage?.name || 'default',
           landing_page_id: landingPage?.id,
           landing_page_slug: landingPage?.slug,
+        });
+      }
+
+      // Track Facebook Pixel Lead event
+      if (typeof window !== 'undefined' && window.fbq) {
+        window.fbq('track', 'Lead', {
+          content_name: landingPage?.name || 'Landing Page',
+          content_category: landingPage?.slug || 'lead',
         });
       }
 

@@ -112,6 +112,12 @@
       "namedRegex": "^/api/debug/klaviyo(?:/)?$"
     },
     {
+      "page": "/api/facebook/launch-campaign",
+      "regex": "^/api/facebook/launch\\-campaign(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/facebook/launch\\-campaign(?:/)?$"
+    },
+    {
       "page": "/api/images",
       "regex": "^/api/images(?:/)?$",
       "routeKeys": {},

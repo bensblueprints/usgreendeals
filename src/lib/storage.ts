@@ -104,6 +104,7 @@ export interface Client {
   fb_ad_account_id: string | null;
   fb_access_token: string | null;
   fb_page_id: string | null;
+  fb_pixel_id: string | null;
   logo_url: string | null;
   active: boolean;
   is_default: boolean;
@@ -1038,6 +1039,7 @@ export async function saveClient(client: Partial<Client> & { id?: string }): Pro
         fb_ad_account_id: client.fb_ad_account_id,
         fb_access_token: client.fb_access_token,
         fb_page_id: client.fb_page_id,
+        fb_pixel_id: client.fb_pixel_id,
         logo_url: client.logo_url,
         active: client.active,
         updated_at: new Date().toISOString(),
@@ -1070,6 +1072,7 @@ export async function saveClient(client: Partial<Client> & { id?: string }): Pro
       fb_ad_account_id: client.fb_ad_account_id || null,
       fb_access_token: client.fb_access_token || null,
       fb_page_id: client.fb_page_id || null,
+      fb_pixel_id: client.fb_pixel_id || null,
       logo_url: client.logo_url || null,
       active: client.active ?? true,
       is_default: isFirstClient,
