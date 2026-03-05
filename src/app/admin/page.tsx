@@ -3219,346 +3219,415 @@ export default function AdminPage() {
               subscribers will sync to that client&apos;s Klaviyo list.
             </p>
 
-            {/* Client Editor Modal */}
-            <AnimatePresence>
-              {(editingClient || isCreatingClient) && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-                  onClick={() => {
-                    setEditingClient(null);
-                    setIsCreatingClient(false);
-                  }}
-                >
-                  <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.9, opacity: 0 }}
-                    className="bg-white rounded-2xl p-6 w-full max-w-lg"
-                    onClick={(e) => e.stopPropagation()}
+            {/* Client Editor - Full Page View */}
+            {(editingClient || isCreatingClient) ? (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-2xl p-8"
+              >
+                {/* Header with back button */}
+                <div className="flex items-center gap-4 mb-8 pb-6 border-b border-[var(--sage)]/30">
+                  <button
+                    onClick={() => {
+                      setEditingClient(null);
+                      setIsCreatingClient(false);
+                    }}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                   >
-                    <div className="flex justify-between items-center mb-6">
-                      <h3 className="font-display text-xl text-[var(--forest)]">
-                        {editingClient?.id ? 'Edit Client' : 'New Client'}
-                      </h3>
-                      <button
-                        onClick={() => {
-                          setEditingClient(null);
-                          setIsCreatingClient(false);
-                        }}
-                        className="p-2 hover:bg-gray-100 rounded-lg"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
+                    <ChevronLeft className="w-6 h-6 text-[var(--forest)]" />
+                  </button>
+                  <div>
+                    <h3 className="font-display text-2xl text-[var(--forest)]">
+                      {editingClient?.id ? 'Edit Client' : 'New Client'}
+                    </h3>
+                    <p className="text-sm text-[var(--forest)]/60 mt-1">
+                      Configure client settings, Klaviyo integration, and Facebook Ads
+                    </p>
+                  </div>
+                </div>
 
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Client Name</label>
-                        <input
-                          type="text"
-                          value={editingClient?.name || ''}
-                          onChange={(e) => setEditingClient({ ...editingClient!, name: e.target.value })}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                          placeholder="e.g., CBD Store"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Slug</label>
-                        <input
-                          type="text"
-                          value={editingClient?.slug || ''}
-                          onChange={(e) => setEditingClient({ ...editingClient!, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                          placeholder="e.g., cbd-store"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Client Logo</label>
-                        <p className="text-xs text-[var(--forest)]/50 mb-2">
-                          Upload a GIF, video, or image for the client logo
-                        </p>
-
-                        {editingClient?.logo_url ? (
-                          <div className="space-y-3">
-                            <div className="relative w-full h-32 rounded-xl overflow-hidden bg-gray-100 border-2 border-[var(--sage)]/30">
-                              {editingClient.logo_url.match(/\.(mp4|webm|mov)$/i) ? (
-                                <video
-                                  src={editingClient.logo_url}
-                                  className="w-full h-full object-contain"
-                                  autoPlay
-                                  loop
-                                  muted
-                                  playsInline
-                                />
-                              ) : (
-                                <img
-                                  src={editingClient.logo_url}
-                                  alt="Client logo"
-                                  className="w-full h-full object-contain"
-                                />
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[var(--sage-light)] hover:bg-[var(--sage)] text-[var(--forest)] rounded-xl cursor-pointer transition-colors">
-                                <Upload className="w-4 h-4" />
-                                Change Logo
-                                <input
-                                  type="file"
-                                  accept="image/*,video/mp4,video/webm,video/quicktime,.gif"
-                                  className="hidden"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) uploadClientLogo(file);
-                                  }}
-                                  disabled={uploadingLogo}
-                                />
-                              </label>
-                              <button
-                                onClick={removeClientLogo}
-                                className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl transition-colors flex items-center gap-2"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <label className="flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed border-[var(--sage)] hover:border-[var(--primary)] bg-[var(--sage-light)]/50 cursor-pointer transition-colors">
-                            {uploadingLogo ? (
-                              <div className="flex flex-col items-center gap-2">
-                                <div className="w-8 h-8 border-3 border-[var(--primary)]/30 border-t-[var(--primary)] rounded-full animate-spin" />
-                                <span className="text-sm text-[var(--forest)]/60">Uploading...</span>
-                              </div>
-                            ) : (
-                              <>
-                                <Upload className="w-8 h-8 text-[var(--forest)]/40 mb-2" />
-                                <span className="text-sm text-[var(--forest)]/60">Click to upload logo</span>
-                                <span className="text-xs text-[var(--forest)]/40 mt-1">GIF, MP4, PNG, JPG, SVG</span>
-                              </>
-                            )}
-                            <input
-                              type="file"
-                              accept="image/*,video/mp4,video/webm,video/quicktime,.gif"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) uploadClientLogo(file);
-                              }}
-                              disabled={uploadingLogo}
-                            />
-                          </label>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Klaviyo API Key</label>
-                        <input
-                          type="password"
-                          value={editingClient?.klaviyo_api_key || ''}
-                          onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_api_key: e.target.value || null })}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                          placeholder="pk_..."
-                        />
-                        <p className="text-xs text-[var(--forest)]/50 mt-1">
-                          Enter API key to load available lists
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Klaviyo List</label>
-                        {loadingLists ? (
-                          <div className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 bg-gray-50 flex items-center gap-2">
-                            <div className="w-4 h-4 border-2 border-[var(--primary)]/30 border-t-[var(--primary)] rounded-full animate-spin" />
-                            <span className="text-sm text-[var(--forest)]/60">Loading lists...</span>
-                          </div>
-                        ) : klaviyoLists.length > 0 ? (
-                          <select
-                            value={editingClient?.klaviyo_list_id || ''}
-                            onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_list_id: e.target.value || null })}
-                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                          >
-                            <option value="">Select a list...</option>
-                            {klaviyoLists.map((list) => (
-                              <option key={list.id} value={list.id}>
-                                {list.name} ({list.id})
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
+                <div className="grid md:grid-cols-2 gap-8">
+                  {/* Left Column - Basic Info */}
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="font-semibold text-[var(--forest)] mb-4 flex items-center gap-2">
+                        <User className="w-5 h-5" />
+                        Basic Information
+                      </h4>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Client Name</label>
                           <input
                             type="text"
-                            value={editingClient?.klaviyo_list_id || ''}
-                            onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_list_id: e.target.value || null })}
+                            value={editingClient?.name || ''}
+                            onChange={(e) => setEditingClient({ ...editingClient!, name: e.target.value })}
                             className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                            placeholder={editingClient?.klaviyo_api_key ? 'No lists found' : 'Enter API key first'}
-                            disabled={!editingClient?.klaviyo_api_key}
+                            placeholder="e.g., CBD Store"
                           />
-                        )}
-                        {editingClient?.klaviyo_list_id && (
-                          <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" />
-                            List ID: {editingClient.klaviyo_list_id}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Slug</label>
+                          <input
+                            type="text"
+                            value={editingClient?.slug || ''}
+                            onChange={(e) => setEditingClient({ ...editingClient!, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            placeholder="e.g., cbd-store"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Client Logo</label>
+                          <p className="text-xs text-[var(--forest)]/50 mb-2">
+                            Upload a GIF, video, or image for the client logo
                           </p>
-                        )}
+
+                          {editingClient?.logo_url ? (
+                            <div className="space-y-3">
+                              <div className="relative w-full h-32 rounded-xl overflow-hidden bg-gray-100 border-2 border-[var(--sage)]/30">
+                                {editingClient.logo_url.match(/\.(mp4|webm|mov)$/i) ? (
+                                  <video
+                                    src={editingClient.logo_url}
+                                    className="w-full h-full object-contain"
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                  />
+                                ) : (
+                                  <img
+                                    src={editingClient.logo_url}
+                                    alt="Client logo"
+                                    className="w-full h-full object-contain"
+                                  />
+                                )}
+                              </div>
+                              <div className="flex gap-2">
+                                <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[var(--sage-light)] hover:bg-[var(--sage)] text-[var(--forest)] rounded-xl cursor-pointer transition-colors">
+                                  <Upload className="w-4 h-4" />
+                                  Change Logo
+                                  <input
+                                    type="file"
+                                    accept="image/*,video/mp4,video/webm,video/quicktime,.gif"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) uploadClientLogo(file);
+                                    }}
+                                    disabled={uploadingLogo}
+                                  />
+                                </label>
+                                <button
+                                  onClick={removeClientLogo}
+                                  className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl transition-colors flex items-center gap-2"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <label className="flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed border-[var(--sage)] hover:border-[var(--primary)] bg-[var(--sage-light)]/50 cursor-pointer transition-colors">
+                              {uploadingLogo ? (
+                                <div className="flex flex-col items-center gap-2">
+                                  <div className="w-8 h-8 border-3 border-[var(--primary)]/30 border-t-[var(--primary)] rounded-full animate-spin" />
+                                  <span className="text-sm text-[var(--forest)]/60">Uploading...</span>
+                                </div>
+                              ) : (
+                                <>
+                                  <Upload className="w-8 h-8 text-[var(--forest)]/40 mb-2" />
+                                  <span className="text-sm text-[var(--forest)]/60">Click to upload logo</span>
+                                  <span className="text-xs text-[var(--forest)]/40 mt-1">GIF, MP4, PNG, JPG, SVG</span>
+                                </>
+                              )}
+                              <input
+                                type="file"
+                                accept="image/*,video/mp4,video/webm,video/quicktime,.gif"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) uploadClientLogo(file);
+                                }}
+                                disabled={uploadingLogo}
+                              />
+                            </label>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3 pt-2">
+                          <input
+                            type="checkbox"
+                            id="client-active"
+                            checked={editingClient?.active ?? true}
+                            onChange={(e) => setEditingClient({ ...editingClient!, active: e.target.checked })}
+                            className="w-5 h-5 rounded border-[var(--sage)] text-[var(--primary)] focus:ring-[var(--primary)]"
+                          />
+                          <label htmlFor="client-active" className="text-sm font-medium text-[var(--forest)]">
+                            Active Client
+                          </label>
+                        </div>
                       </div>
+                    </div>
 
-                      {/* Secondary Klaviyo Account */}
-                      <div className="pt-4 border-t border-[var(--sage)]/30">
-                        <h4 className="text-sm font-semibold text-[var(--forest)] mb-3 flex items-center gap-2">
-                          <Mail className="w-4 h-4" />
-                          Secondary Klaviyo Account (Optional)
-                        </h4>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Klaviyo API Key #2</label>
-                            <input
-                              type="password"
-                              value={editingClient?.klaviyo_api_key_2 || ''}
-                              onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_api_key_2: e.target.value || null })}
+                    {/* Klaviyo Settings */}
+                    <div className="pt-6 border-t border-[var(--sage)]/30">
+                      <h4 className="font-semibold text-[var(--forest)] mb-4 flex items-center gap-2">
+                        <Mail className="w-5 h-5" />
+                        Klaviyo Integration
+                      </h4>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Klaviyo API Key</label>
+                          <input
+                            type="password"
+                            value={editingClient?.klaviyo_api_key || ''}
+                            onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_api_key: e.target.value || null })}
+                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            placeholder="pk_..."
+                          />
+                          <p className="text-xs text-[var(--forest)]/50 mt-1">
+                            Enter API key to load available lists
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Klaviyo List</label>
+                          {loadingLists ? (
+                            <div className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 bg-gray-50 flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-[var(--primary)]/30 border-t-[var(--primary)] rounded-full animate-spin" />
+                              <span className="text-sm text-[var(--forest)]/60">Loading lists...</span>
+                            </div>
+                          ) : klaviyoLists.length > 0 ? (
+                            <select
+                              value={editingClient?.klaviyo_list_id || ''}
+                              onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_list_id: e.target.value || null })}
                               className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                              placeholder="pk_..."
-                            />
-                            <p className="text-xs text-[var(--forest)]/50 mt-1">
-                              Subscribers will sync to both accounts
-                            </p>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Klaviyo List #2</label>
+                            >
+                              <option value="">Select a list...</option>
+                              {klaviyoLists.map((list) => (
+                                <option key={list.id} value={list.id}>
+                                  {list.name} ({list.id})
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
                             <input
                               type="text"
-                              value={editingClient?.klaviyo_list_id_2 || ''}
-                              onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_list_id_2: e.target.value || null })}
+                              value={editingClient?.klaviyo_list_id || ''}
+                              onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_list_id: e.target.value || null })}
                               className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                              placeholder="Enter List ID"
-                              disabled={!editingClient?.klaviyo_api_key_2}
+                              placeholder={editingClient?.klaviyo_api_key ? 'No lists found' : 'Enter API key first'}
+                              disabled={!editingClient?.klaviyo_api_key}
                             />
-                            {editingClient?.klaviyo_list_id_2 && (
-                              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                                <CheckCircle className="w-3 h-3" />
-                                Secondary List ID: {editingClient.klaviyo_list_id_2}
-                              </p>
-                            )}
+                          )}
+                          {editingClient?.klaviyo_list_id && (
+                            <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              List ID: {editingClient.klaviyo_list_id}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Secondary Klaviyo */}
+                        <div className="pt-4 mt-4 border-t border-[var(--sage)]/20">
+                          <p className="text-sm font-medium text-[var(--forest)]/70 mb-3">Secondary Account (Optional)</p>
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--forest)] mb-1">Klaviyo API Key #2</label>
+                              <input
+                                type="password"
+                                value={editingClient?.klaviyo_api_key_2 || ''}
+                                onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_api_key_2: e.target.value || null })}
+                                className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                                placeholder="pk_..."
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--forest)] mb-1">Klaviyo List #2</label>
+                              <input
+                                type="text"
+                                value={editingClient?.klaviyo_list_id_2 || ''}
+                                onChange={(e) => setEditingClient({ ...editingClient!, klaviyo_list_id_2: e.target.value || null })}
+                                className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                                placeholder="Enter List ID"
+                                disabled={!editingClient?.klaviyo_api_key_2}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
+                    </div>
+                  </div>
 
-                      {/* Facebook Ads Settings */}
-                      <div className="pt-4 border-t border-[var(--sage)]/30">
-                        <h4 className="text-sm font-semibold text-[var(--forest)] mb-3 flex items-center gap-2">
-                          <Megaphone className="w-4 h-4" />
-                          Facebook Ads Settings (Optional)
-                        </h4>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Ad Account ID</label>
-                            <input
-                              type="text"
-                              value={editingClient?.fb_ad_account_id || ''}
-                              onChange={(e) => setEditingClient({ ...editingClient!, fb_ad_account_id: e.target.value || null })}
-                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                              placeholder="act_123456789"
-                            />
-                            <p className="text-xs text-[var(--forest)]/50 mt-1">
-                              Find this in Facebook Business Manager
-                            </p>
-                          </div>
+                  {/* Right Column - Facebook Settings */}
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="font-semibold text-[var(--forest)] mb-4 flex items-center gap-2">
+                        <Facebook className="w-5 h-5" />
+                        Facebook Ads Integration
+                      </h4>
 
-                          <div>
-                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Access Token</label>
-                            <input
-                              type="password"
-                              value={editingClient?.fb_access_token || ''}
-                              onChange={(e) => setEditingClient({ ...editingClient!, fb_access_token: e.target.value || null })}
-                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                              placeholder="EAAG..."
-                            />
-                            <p className="text-xs text-[var(--forest)]/50 mt-1">
-                              Long-lived token from Facebook Graph API Explorer
-                            </p>
-                          </div>
+                      {/* Quick Links */}
+                      <div className="bg-blue-50 rounded-xl p-4 mb-6">
+                        <p className="text-sm font-medium text-blue-800 mb-3">Where to find your credentials:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <a
+                            href="https://business.facebook.com/settings/ad-accounts"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 bg-white px-3 py-2 rounded-lg transition-colors"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            Ad Account ID
+                          </a>
+                          <a
+                            href="https://developers.facebook.com/tools/explorer/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 bg-white px-3 py-2 rounded-lg transition-colors"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            Access Token
+                          </a>
+                          <a
+                            href="https://business.facebook.com/settings/pages"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 bg-white px-3 py-2 rounded-lg transition-colors"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            Page ID
+                          </a>
+                          <a
+                            href="https://business.facebook.com/events_manager"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 bg-white px-3 py-2 rounded-lg transition-colors"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            Pixel ID
+                          </a>
+                        </div>
+                      </div>
 
-                          <div>
-                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Page ID (Optional)</label>
-                            <input
-                              type="text"
-                              value={editingClient?.fb_page_id || ''}
-                              onChange={(e) => setEditingClient({ ...editingClient!, fb_page_id: e.target.value || null })}
-                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                              placeholder="123456789012345"
-                            />
-                            <p className="text-xs text-[var(--forest)]/50 mt-1">
-                              Facebook Page ID for the ads to run from
-                            </p>
-                          </div>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Ad Account ID</label>
+                          <input
+                            type="text"
+                            value={editingClient?.fb_ad_account_id || ''}
+                            onChange={(e) => setEditingClient({ ...editingClient!, fb_ad_account_id: e.target.value || null })}
+                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            placeholder="act_123456789"
+                          />
+                          <p className="text-xs text-[var(--forest)]/50 mt-1">
+                            Found in Business Settings → Ad Accounts
+                          </p>
+                        </div>
 
-                          <div>
-                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Facebook Pixel ID</label>
-                            <input
-                              type="text"
-                              value={editingClient?.fb_pixel_id || ''}
-                              onChange={(e) => setEditingClient({ ...editingClient!, fb_pixel_id: e.target.value || null })}
-                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
-                              placeholder="123456789012345"
-                            />
-                            <p className="text-xs text-[var(--forest)]/50 mt-1">
-                              Pixel ID for tracking conversions on landing pages
-                            </p>
-                          </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Access Token</label>
+                          <input
+                            type="password"
+                            value={editingClient?.fb_access_token || ''}
+                            onChange={(e) => setEditingClient({ ...editingClient!, fb_access_token: e.target.value || null })}
+                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            placeholder="EAAG..."
+                          />
+                          <p className="text-xs text-[var(--forest)]/50 mt-1">
+                            Generate a long-lived token in Graph API Explorer
+                          </p>
+                        </div>
 
-                          {editingClient?.fb_ad_account_id && editingClient?.fb_access_token && (
-                            <p className="text-xs text-green-600 flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3" />
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Page ID</label>
+                          <input
+                            type="text"
+                            value={editingClient?.fb_page_id || ''}
+                            onChange={(e) => setEditingClient({ ...editingClient!, fb_page_id: e.target.value || null })}
+                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            placeholder="123456789012345"
+                          />
+                          <p className="text-xs text-[var(--forest)]/50 mt-1">
+                            The Facebook Page ads will be published from
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Facebook Pixel ID</label>
+                          <input
+                            type="text"
+                            value={editingClient?.fb_pixel_id || ''}
+                            onChange={(e) => setEditingClient({ ...editingClient!, fb_pixel_id: e.target.value || null })}
+                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            placeholder="123456789012345"
+                          />
+                          <p className="text-xs text-[var(--forest)]/50 mt-1">
+                            Found in Events Manager → Data Sources
+                          </p>
+                        </div>
+
+                        {/* Status indicators */}
+                        <div className="pt-4 space-y-2">
+                          {editingClient?.fb_ad_account_id && editingClient?.fb_access_token ? (
+                            <p className="text-sm text-green-600 flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg">
+                              <CheckCircle className="w-4 h-4" />
                               Facebook Ads configured - ready to create campaigns!
                             </p>
+                          ) : (
+                            <p className="text-sm text-amber-600 flex items-center gap-2 bg-amber-50 px-3 py-2 rounded-lg">
+                              <AlertCircle className="w-4 h-4" />
+                              Add Account ID and Access Token to enable ads
+                            </p>
                           )}
-                          {editingClient?.fb_pixel_id && (
-                            <p className="text-xs text-blue-600 flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3" />
+                          {editingClient?.fb_pixel_id ? (
+                            <p className="text-sm text-blue-600 flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
+                              <CheckCircle className="w-4 h-4" />
                               Pixel tracking enabled on landing pages
+                            </p>
+                          ) : (
+                            <p className="text-sm text-[var(--forest)]/50 flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
+                              <AlertCircle className="w-4 h-4" />
+                              Add Pixel ID to track conversions
                             </p>
                           )}
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          id="client-active"
-                          checked={editingClient?.active ?? true}
-                          onChange={(e) => setEditingClient({ ...editingClient!, active: e.target.checked })}
-                          className="w-5 h-5 rounded border-[var(--sage)] text-[var(--primary)] focus:ring-[var(--primary)]"
-                        />
-                        <label htmlFor="client-active" className="text-sm font-medium text-[var(--forest)]">
-                          Active
-                        </label>
-                      </div>
-
-                      <button
-                        onClick={() => editingClient && saveClientData(editingClient)}
-                        disabled={loading}
-                        className="w-full btn-primary py-3 rounded-xl text-white font-medium flex items-center justify-center gap-2"
-                      >
-                        {loading ? (
-                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                          <>
-                            <Save className="w-5 h-5" />
-                            Save Client
-                          </>
-                        )}
-                      </button>
                     </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  </div>
+                </div>
 
+                {/* Save Button */}
+                <div className="mt-8 pt-6 border-t border-[var(--sage)]/30 flex justify-end gap-4">
+                  <button
+                    onClick={() => {
+                      setEditingClient(null);
+                      setIsCreatingClient(false);
+                    }}
+                    className="px-6 py-3 rounded-xl border-2 border-[var(--sage)]/30 text-[var(--forest)] font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => editingClient && saveClientData(editingClient)}
+                    disabled={loading}
+                    className="btn-primary px-8 py-3 rounded-xl text-white font-medium flex items-center gap-2"
+                  >
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Save className="w-5 h-5" />
+                        Save Client
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            ) : (
+            <>
             {/* Clients List */}
             <div className="grid gap-4">
               {clients.length === 0 ? (
@@ -3657,6 +3726,8 @@ export default function AdminPage() {
                 ))
               )}
             </div>
+            </>
+            )}
           </div>
         )}
 

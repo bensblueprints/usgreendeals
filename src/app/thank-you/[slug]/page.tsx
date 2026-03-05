@@ -6,12 +6,17 @@ import { motion } from 'framer-motion';
 import { Leaf, CheckCircle, MapPin, Mail, Sparkles, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
-// Declare gtag for TypeScript
+// Declare gtag and fbq for TypeScript
 declare global {
   interface Window {
     gtag?: (
       command: 'event' | 'config' | 'js',
       action: string | Date,
+      params?: Record<string, unknown>
+    ) => void;
+    fbq?: (
+      command: 'track' | 'init' | 'trackCustom',
+      event: string,
       params?: Record<string, unknown>
     ) => void;
   }
@@ -37,6 +42,7 @@ interface ThankYouPage {
     name: string;
     logo_url: string | null;
     slug: string;
+    fb_pixel_id: string | null;
   } | null;
 }
 
@@ -60,6 +66,52 @@ function ThankYouContent() {
   const [locationLoading, setLocationLoading] = useState(true);
   const hasTracked = useRef(false);
   const hasSynced = useRef(false);
+  const hasPixelFired = useRef(false);
+
+  // Initialize Facebook Pixel and fire CompleteRegistration when page loads
+  useEffect(() => {
+    if (hasPixelFired.current || !thankYouPage) return;
+
+    const pixelId = thankYouPage.clients?.fb_pixel_id;
+    if (pixelId && typeof window !== 'undefined') {
+      hasPixelFired.current = true;
+
+      // Load Facebook Pixel script dynamically if not already loaded
+      if (!document.getElementById('fb-pixel-script')) {
+        const script = document.createElement('script');
+        script.id = 'fb-pixel-script';
+        script.innerHTML = `
+          !function(f,b,e,v,n,t,s)
+          {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+          n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+          if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+          n.queue=[];t=b.createElement(e);t.async=!0;
+          t.src=v;s=b.getElementsByTagName(e)[0];
+          s.parentNode.insertBefore(t,s)}(window, document,'script',
+          'https://connect.facebook.net/en_US/fbevents.js');
+          fbq('init', '${pixelId}');
+          fbq('track', 'PageView');
+          fbq('track', 'CompleteRegistration', {
+            content_name: '${thankYouPage.name || 'Thank You Page'}',
+            status: 'success'
+          });
+        `;
+        document.head.appendChild(script);
+
+        // Add noscript fallback
+        const noscript = document.createElement('noscript');
+        noscript.innerHTML = `<img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${pixelId}&ev=CompleteRegistration&noscript=1"/>`;
+        document.body.appendChild(noscript);
+      } else if (window.fbq) {
+        // Pixel already loaded, just fire the events
+        window.fbq('track', 'PageView');
+        window.fbq('track', 'CompleteRegistration', {
+          content_name: thankYouPage.name || 'Thank You Page',
+          status: 'success',
+        });
+      }
+    }
+  }, [thankYouPage]);
 
   // Track signup conversion in Google Analytics (only once)
   useEffect(() => {

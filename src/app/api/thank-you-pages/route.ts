@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     if (slug) {
       const { data, error } = await supabaseAdmin
         .from('thank_you_pages')
-        .select('*, clients(name, logo_url, slug)')
+        .select('*, clients(name, logo_url, slug, fb_pixel_id)')
         .eq('slug', slug)
         .eq('active', true)
         .single();
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     if (id) {
       const { data, error } = await supabaseAdmin
         .from('thank_you_pages')
-        .select('*, clients(name, logo_url, slug)')
+        .select('*, clients(name, logo_url, slug, fb_pixel_id)')
         .eq('id', id)
         .single();
 
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     // List all pages (optionally filtered by client)
     let query = supabaseAdmin
       .from('thank_you_pages')
-      .select('*, clients(name, logo_url, slug)')
+      .select('*, clients(name, logo_url, slug, fb_pixel_id)')
       .order('created_at', { ascending: false });
 
     if (clientId) {
