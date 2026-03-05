@@ -58,6 +58,7 @@ export interface Client {
   slug: string;
   klaviyo_api_key: string | null;
   klaviyo_list_id: string | null;
+  logo_url: string | null;
   active: boolean;
   is_default: boolean;
   created_at: string;
@@ -794,6 +795,7 @@ export async function saveClient(client: Partial<Client> & { id?: string }): Pro
         slug: client.slug,
         klaviyo_api_key: client.klaviyo_api_key,
         klaviyo_list_id: client.klaviyo_list_id,
+        logo_url: client.logo_url,
         active: client.active,
         updated_at: new Date().toISOString(),
       })
@@ -820,6 +822,7 @@ export async function saveClient(client: Partial<Client> & { id?: string }): Pro
       slug: client.slug,
       klaviyo_api_key: client.klaviyo_api_key || null,
       klaviyo_list_id: client.klaviyo_list_id || null,
+      logo_url: client.logo_url || null,
       active: client.active ?? true,
       is_default: isFirstClient,
     })

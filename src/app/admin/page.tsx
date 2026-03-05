@@ -96,6 +96,7 @@ interface Client {
   slug: string;
   klaviyo_api_key: string | null;
   klaviyo_list_id: string | null;
+  logo_url: string | null;
   active: boolean;
   is_default?: boolean;
 }
@@ -143,6 +144,7 @@ export default function AdminPage() {
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>('all');
   const [pageLists, setPageLists] = useState<{ id: string; name: string }[]>([]);
   const [loadingPageLists, setLoadingPageLists] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   // Settings state
   const [settings, setSettings] = useState<SettingsData>({
@@ -700,6 +702,55 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const uploadClientLogo = async (file: File) => {
+    setUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/client-logos', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (editingClient) {
+          setEditingClient({ ...editingClient, logo_url: data.url });
+        }
+        showMessage('success', 'Logo uploaded!');
+      } else {
+        const error = await response.json();
+        showMessage('error', error.error || 'Failed to upload logo');
+      }
+    } catch {
+      showMessage('error', 'Failed to upload logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const removeClientLogo = async () => {
+    if (!editingClient?.logo_url) return;
+
+    // Extract filename from URL
+    const urlParts = editingClient.logo_url.split('/');
+    const fileName = urlParts[urlParts.length - 1];
+
+    try {
+      await fetch(`/api/client-logos?name=${encodeURIComponent(fileName)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+    } catch {
+      // Ignore delete errors - the file may not exist
+    }
+
+    setEditingClient({ ...editingClient, logo_url: null });
+    showMessage('success', 'Logo removed');
   };
 
   const deleteClientData = async (id: string) => {
@@ -2001,6 +2052,7 @@ export default function AdminPage() {
                     slug: '',
                     klaviyo_api_key: null,
                     klaviyo_list_id: null,
+                    logo_url: null,
                     active: true,
                   });
                 }}
@@ -2072,6 +2124,84 @@ export default function AdminPage() {
                           className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
                           placeholder="e.g., cbd-store"
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Client Logo</label>
+                        <p className="text-xs text-[var(--forest)]/50 mb-2">
+                          Upload a GIF, video, or image for the client logo
+                        </p>
+
+                        {editingClient?.logo_url ? (
+                          <div className="space-y-3">
+                            <div className="relative w-full h-32 rounded-xl overflow-hidden bg-gray-100 border-2 border-[var(--sage)]/30">
+                              {editingClient.logo_url.match(/\.(mp4|webm|mov)$/i) ? (
+                                <video
+                                  src={editingClient.logo_url}
+                                  className="w-full h-full object-contain"
+                                  autoPlay
+                                  loop
+                                  muted
+                                  playsInline
+                                />
+                              ) : (
+                                <img
+                                  src={editingClient.logo_url}
+                                  alt="Client logo"
+                                  className="w-full h-full object-contain"
+                                />
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[var(--sage-light)] hover:bg-[var(--sage)] text-[var(--forest)] rounded-xl cursor-pointer transition-colors">
+                                <Upload className="w-4 h-4" />
+                                Change Logo
+                                <input
+                                  type="file"
+                                  accept="image/*,video/mp4,video/webm,video/quicktime,.gif"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) uploadClientLogo(file);
+                                  }}
+                                  disabled={uploadingLogo}
+                                />
+                              </label>
+                              <button
+                                onClick={removeClientLogo}
+                                className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl transition-colors flex items-center gap-2"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label className="flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed border-[var(--sage)] hover:border-[var(--primary)] bg-[var(--sage-light)]/50 cursor-pointer transition-colors">
+                            {uploadingLogo ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <div className="w-8 h-8 border-3 border-[var(--primary)]/30 border-t-[var(--primary)] rounded-full animate-spin" />
+                                <span className="text-sm text-[var(--forest)]/60">Uploading...</span>
+                              </div>
+                            ) : (
+                              <>
+                                <Upload className="w-8 h-8 text-[var(--forest)]/40 mb-2" />
+                                <span className="text-sm text-[var(--forest)]/60">Click to upload logo</span>
+                                <span className="text-xs text-[var(--forest)]/40 mt-1">GIF, MP4, PNG, JPG, SVG</span>
+                              </>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*,video/mp4,video/webm,video/quicktime,.gif"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) uploadClientLogo(file);
+                              }}
+                              disabled={uploadingLogo}
+                            />
+                          </label>
+                        )}
                       </div>
 
                       <div>
@@ -2175,10 +2305,29 @@ export default function AdminPage() {
                     } ${!client.active ? 'opacity-60' : ''}`}
                   >
                     <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden ${
                         client.is_default ? 'bg-[var(--primary)] text-white' : 'bg-indigo-100'
-                      }`}>
-                        <Users className={`w-6 h-6 ${client.is_default ? 'text-white' : 'text-indigo-600'}`} />
+                      } ${client.logo_url ? 'p-0' : ''}`}>
+                        {client.logo_url ? (
+                          client.logo_url.match(/\.(mp4|webm|mov)$/i) ? (
+                            <video
+                              src={client.logo_url}
+                              className="w-full h-full object-cover"
+                              autoPlay
+                              loop
+                              muted
+                              playsInline
+                            />
+                          ) : (
+                            <img
+                              src={client.logo_url}
+                              alt={client.name}
+                              className="w-full h-full object-cover"
+                            />
+                          )
+                        ) : (
+                          <Users className={`w-6 h-6 ${client.is_default ? 'text-white' : 'text-indigo-600'}`} />
+                        )}
                       </div>
 
                       <div className="flex-1">
