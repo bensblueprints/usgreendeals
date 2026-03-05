@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabaseAdmin.storage
       .from('videos')
-      .list('landing-pages', {
+      .list('landing page videos', {
         limit: 100,
         sortBy: { column: 'created_at', order: 'desc' },
       });
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       .filter(file => file.name !== '.emptyFolderPlaceholder')
       .map(file => ({
         name: file.name,
-        url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/videos/landing-pages/${file.name}`,
+        url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/videos/landing%20page%20videos/${file.name}`,
         created_at: file.created_at,
       }));
 
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     const { error } = await supabaseAdmin.storage
       .from('videos')
-      .upload(`landing-pages/${fileName}`, buffer, {
+      .upload(`landing page videos/${fileName}`, buffer, {
         contentType: file.type,
         upsert: false,
       });
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to upload video' }, { status: 500 });
     }
 
-    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/videos/landing-pages/${fileName}`;
+    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/videos/landing%20page%20videos/${fileName}`;
 
     return NextResponse.json({ success: true, url, name: fileName });
   } catch (error) {
@@ -103,7 +103,7 @@ export async function DELETE(request: NextRequest) {
 
     const { error } = await supabaseAdmin.storage
       .from('videos')
-      .remove([`landing-pages/${name}`]);
+      .remove([`landing page videos/${name}`]);
 
     if (error) {
       console.error('Delete error:', error);

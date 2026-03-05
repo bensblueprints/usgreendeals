@@ -12,5 +12,5 @@ R.c("server/chunks/ssr/af3bb_next_dist_client_components_4bee081e._.js")
 R.c("server/chunks/ssr/af3bb_next_dist_client_components_builtin_forbidden_4ddcaa00.js")
 R.c("server/chunks/ssr/af3bb_next_dist_client_components_builtin_unauthorized_5b7b9b45.js")
 R.c("server/chunks/ssr/usgreendeals__next-internal_server_app_[slug]_page_actions_1e7393b8.js")
-R.m(38035)
-module.exports=R.m(38035).exports
+R.m(8855)
+module.exports=R.m(8855).exports
