@@ -9,8 +9,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { data, error } = await supabaseAdmin.storage
-      .from('videos')
-      .list('landing page videos', {
+      .from('Videos')
+      .list('Landing Page Videos', {
         limit: 100,
         sortBy: { column: 'created_at', order: 'desc' },
       });
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       .filter(file => file.name !== '.emptyFolderPlaceholder')
       .map(file => ({
         name: file.name,
-        url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/videos/landing%20page%20videos/${file.name}`,
+        url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/Videos/Landing%20Page%20Videos/${file.name}`,
         created_at: file.created_at,
       }));
 
@@ -67,8 +67,8 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer);
 
     const { error } = await supabaseAdmin.storage
-      .from('videos')
-      .upload(`landing page videos/${fileName}`, buffer, {
+      .from('Videos')
+      .upload(`Landing Page Videos/${fileName}`, buffer, {
         contentType: file.type,
         upsert: false,
       });
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to upload video' }, { status: 500 });
     }
 
-    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/videos/landing%20page%20videos/${fileName}`;
+    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/Videos/Landing%20Page%20Videos/${fileName}`;
 
     return NextResponse.json({ success: true, url, name: fileName });
   } catch (error) {
@@ -102,8 +102,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { error } = await supabaseAdmin.storage
-      .from('videos')
-      .remove([`landing page videos/${name}`]);
+      .from('Videos')
+      .remove([`Landing Page Videos/${name}`]);
 
     if (error) {
       console.error('Delete error:', error);

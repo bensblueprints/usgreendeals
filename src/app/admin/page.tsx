@@ -32,6 +32,12 @@ import {
   ImageIcon,
   Video,
   Play,
+  LayoutDashboard,
+  Heart,
+  FolderOpen,
+  Link2,
+  ArrowRight,
+  ExternalLink,
 } from 'lucide-react';
 
 interface Deal {
@@ -88,6 +94,39 @@ interface LandingPage {
   is_homepage: boolean;
   client_id: string | null;
   klaviyo_list_id: string | null;
+  show_logo: boolean;
+  thank_you_page_id: string | null;
+}
+
+interface ThankYouPage {
+  id?: string;
+  name: string;
+  slug: string;
+  client_id: string | null;
+  headline: string;
+  subheadline: string;
+  body_text: string | null;
+  background_image: string | null;
+  background_color: string;
+  video_url: string | null;
+  theme: 'light' | 'dark';
+  custom_css: string | null;
+  show_logo: boolean;
+  cta_text: string | null;
+  cta_url: string | null;
+  cta_style: string;
+  active: boolean;
+}
+
+interface ClientMedia {
+  id: string;
+  client_id: string;
+  file_name: string;
+  file_url: string;
+  file_type: 'image' | 'video' | 'gif';
+  file_size: number | null;
+  folder: string;
+  uploaded_at: string;
 }
 
 interface Client {
@@ -107,7 +146,7 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState('');
   const [authToken, setAuthToken] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'deals' | 'subscribers' | 'landing-pages' | 'clients' | 'settings'>('landing-pages');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'deals' | 'subscribers' | 'landing-pages' | 'thank-you-pages' | 'clients' | 'media' | 'settings'>('dashboard');
 
   // Deals state
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -145,6 +184,19 @@ export default function AdminPage() {
   const [pageLists, setPageLists] = useState<{ id: string; name: string }[]>([]);
   const [loadingPageLists, setLoadingPageLists] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  // Thank You Pages state
+  const [thankYouPages, setThankYouPages] = useState<ThankYouPage[]>([]);
+  const [editingThankYouPage, setEditingThankYouPage] = useState<ThankYouPage | null>(null);
+  const [isCreatingThankYouPage, setIsCreatingThankYouPage] = useState(false);
+
+  // Client Media state
+  const [clientMedia, setClientMedia] = useState<ClientMedia[]>([]);
+  const [selectedMediaClient, setSelectedMediaClient] = useState<string>('');
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [mediaFolder, setMediaFolder] = useState<string>('general');
+  const [showClientMediaBrowser, setShowClientMediaBrowser] = useState(false);
+  const [mediaBrowserCallback, setMediaBrowserCallback] = useState<((url: string) => void) | null>(null);
 
   // Settings state
   const [settings, setSettings] = useState<SettingsData>({
@@ -187,12 +239,13 @@ export default function AdminPage() {
   const loadData = async (token: string) => {
     setLoading(true);
     try {
-      const [dealsRes, subscribersRes, settingsRes, pagesRes, clientsRes] = await Promise.all([
+      const [dealsRes, subscribersRes, settingsRes, pagesRes, clientsRes, thankYouRes] = await Promise.all([
         fetch('/api/deals', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/subscribers', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/settings', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/landing-pages', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/clients', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/thank-you-pages', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (dealsRes.ok) setDeals(await dealsRes.json());
@@ -205,6 +258,10 @@ export default function AdminPage() {
       if (clientsRes.ok) {
         const data = await clientsRes.json();
         setClients(data.clients || []);
+      }
+      if (thankYouRes.ok) {
+        const data = await thankYouRes.json();
+        setThankYouPages(data.pages || []);
       }
 
       // Also load images and videos
@@ -915,9 +972,12 @@ export default function AdminPage() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
           {[
+            { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
             { key: 'landing-pages', label: 'Landing Pages', icon: Layers },
+            { key: 'thank-you-pages', label: 'Thank You Pages', icon: Heart },
             { key: 'clients', label: 'Clients', icon: Users },
-            { key: 'subscribers', label: 'Subscribers', icon: Users },
+            { key: 'media', label: 'Media Library', icon: FolderOpen },
+            { key: 'subscribers', label: 'Subscribers', icon: Mail },
             { key: 'deals', label: 'Deals', icon: Tag },
             { key: 'settings', label: 'Settings', icon: Settings },
           ].map(({ key, label, icon: Icon }) => (
@@ -937,6 +997,152 @@ export default function AdminPage() {
         </div>
 
         {/* Deals Tab */}
+        {/* Dashboard Tab */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-6">
+            <h2 className="font-display text-2xl text-[var(--forest)]">Page Connections Dashboard</h2>
+            <p className="text-[var(--forest)]/70">
+              Overview of all landing pages and their connected thank you pages.
+            </p>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-2xl p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                    <Layers className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-[var(--forest)]">{landingPages.length}</p>
+                    <p className="text-sm text-[var(--forest)]/60">Landing Pages</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-pink-100 flex items-center justify-center">
+                    <Heart className="w-6 h-6 text-pink-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-[var(--forest)]">{thankYouPages.length}</p>
+                    <p className="text-sm text-[var(--forest)]/60">Thank You Pages</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                    <Users className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-[var(--forest)]">{clients.length}</p>
+                    <p className="text-sm text-[var(--forest)]/60">Clients</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                    <Link2 className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-[var(--forest)]">
+                      {landingPages.filter(p => p.thank_you_page_id).length}
+                    </p>
+                    <p className="text-sm text-[var(--forest)]/60">Connected Pages</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Page Connections Table */}
+            <div className="bg-white rounded-2xl overflow-hidden">
+              <div className="p-5 border-b border-gray-100">
+                <h3 className="font-semibold text-[var(--forest)]">Page Connections</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-[var(--forest)]/60 uppercase tracking-wider">Client</th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-[var(--forest)]/60 uppercase tracking-wider">Landing Page</th>
+                      <th className="px-5 py-3 text-center text-xs font-medium text-[var(--forest)]/60 uppercase tracking-wider">Connection</th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-[var(--forest)]/60 uppercase tracking-wider">Thank You Page</th>
+                      <th className="px-5 py-3 text-center text-xs font-medium text-[var(--forest)]/60 uppercase tracking-wider">Views</th>
+                      <th className="px-5 py-3 text-center text-xs font-medium text-[var(--forest)]/60 uppercase tracking-wider">Conv.</th>
+                      <th className="px-5 py-3 text-center text-xs font-medium text-[var(--forest)]/60 uppercase tracking-wider">Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {landingPages.map((page) => {
+                      const client = clients.find(c => c.id === page.client_id);
+                      const thankYouPage = thankYouPages.find(tp => tp.id === page.thank_you_page_id);
+                      const convRate = page.views > 0 ? ((page.conversions / page.views) * 100).toFixed(1) : '0';
+                      return (
+                        <tr key={page.id} className="hover:bg-gray-50">
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-2">
+                              {client?.logo_url ? (
+                                <img src={client.logo_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                                  <Users className="w-4 h-4 text-gray-400" />
+                                </div>
+                              )}
+                              <span className="text-sm font-medium text-[var(--forest)]">{client?.name || 'No Client'}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            <div>
+                              <p className="text-sm font-medium text-[var(--forest)]">{page.name}</p>
+                              <p className="text-xs text-[var(--forest)]/50">/{page.slug}</p>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-center">
+                            {page.thank_you_page_id ? (
+                              <ArrowRight className="w-5 h-5 text-green-500 mx-auto" />
+                            ) : (
+                              <span className="text-xs text-amber-500 bg-amber-50 px-2 py-1 rounded-full">Not linked</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-4">
+                            {thankYouPage ? (
+                              <div>
+                                <p className="text-sm font-medium text-[var(--forest)]">{thankYouPage.name}</p>
+                                <p className="text-xs text-[var(--forest)]/50">/{thankYouPage.slug}</p>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-4 text-center">
+                            <span className="text-sm font-medium text-[var(--forest)]">{page.views.toLocaleString()}</span>
+                          </td>
+                          <td className="px-5 py-4 text-center">
+                            <span className="text-sm font-medium text-[var(--forest)]">{page.conversions.toLocaleString()}</span>
+                          </td>
+                          <td className="px-5 py-4 text-center">
+                            <span className={`text-sm font-medium ${Number(convRate) >= 5 ? 'text-green-600' : Number(convRate) >= 2 ? 'text-amber-600' : 'text-[var(--forest)]'}`}>
+                              {convRate}%
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {landingPages.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-5 py-12 text-center text-[var(--forest)]/60">
+                          No landing pages yet. Create your first landing page to get started.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'deals' && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -1360,6 +1566,8 @@ export default function AdminPage() {
                       is_homepage: false,
                       client_id: selectedClientFilter !== 'all' ? selectedClientFilter : defaultClient?.id || null,
                       klaviyo_list_id: null,
+                      show_logo: false,
+                      thank_you_page_id: null,
                     });
                   }}
                   className="btn-primary px-6 py-3 rounded-xl text-white font-medium flex items-center gap-2"
@@ -1815,6 +2023,49 @@ export default function AdminPage() {
                         </div>
                       </div>
 
+                      {/* Show Logo Option */}
+                      <div className="p-4 bg-purple-50 rounded-xl">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            id="show-logo"
+                            checked={editingPage?.show_logo ?? false}
+                            onChange={(e) => setEditingPage({ ...editingPage!, show_logo: e.target.checked })}
+                            className="w-5 h-5 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
+                          />
+                          <div className="flex-1">
+                            <label htmlFor="show-logo" className="text-sm font-medium text-purple-900 flex items-center gap-2">
+                              <ImageIcon className="w-4 h-4" />
+                              Show Client Logo
+                            </label>
+                            <p className="text-xs text-purple-700 mt-1">
+                              Display the client&apos;s logo on this landing page
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Thank You Page Selection */}
+                      <div className="p-4 bg-pink-50 rounded-xl">
+                        <label className="block text-sm font-medium text-pink-900 mb-2 flex items-center gap-2">
+                          <Heart className="w-4 h-4" />
+                          Thank You Page
+                        </label>
+                        <select
+                          value={editingPage?.thank_you_page_id || ''}
+                          onChange={(e) => setEditingPage({ ...editingPage!, thank_you_page_id: e.target.value || null })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-pink-200 focus:border-pink-400 bg-white"
+                        >
+                          <option value="">Default thank you page</option>
+                          {thankYouPages.filter(tp => tp.active).map((tp) => (
+                            <option key={tp.id} value={tp.id}>{tp.name}</option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-pink-700 mt-1">
+                          Redirect users to this page after form submission
+                        </p>
+                      </div>
+
                       {/* Client Selection */}
                       <div className="p-4 bg-blue-50 rounded-xl space-y-4">
                         <div>
@@ -2036,6 +2287,569 @@ export default function AdminPage() {
                 });
               })()}
             </div>
+          </div>
+        )}
+
+        {/* Thank You Pages Tab */}
+        {activeTab === 'thank-you-pages' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="font-display text-2xl text-[var(--forest)]">Thank You Pages</h2>
+              <button
+                onClick={() => {
+                  setIsCreatingThankYouPage(true);
+                  setEditingThankYouPage({
+                    name: '',
+                    slug: '',
+                    client_id: null,
+                    headline: 'Thank You!',
+                    subheadline: 'Your submission has been received.',
+                    body_text: null,
+                    background_image: null,
+                    background_color: '#1a1a2e',
+                    video_url: null,
+                    theme: 'dark',
+                    custom_css: null,
+                    show_logo: true,
+                    cta_text: null,
+                    cta_url: null,
+                    cta_style: 'primary',
+                    active: true,
+                  });
+                }}
+                className="btn-primary px-6 py-3 rounded-xl text-white font-medium flex items-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                Create Thank You Page
+              </button>
+            </div>
+
+            <p className="text-sm text-[var(--forest)]/70">
+              Create thank you pages to show after form submissions. Link them to landing pages for a complete funnel.
+            </p>
+
+            {/* Thank You Page Editor Modal */}
+            <AnimatePresence>
+              {(editingThankYouPage || isCreatingThankYouPage) && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto"
+                  onClick={() => {
+                    setEditingThankYouPage(null);
+                    setIsCreatingThankYouPage(false);
+                  }}
+                >
+                  <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    className="bg-white rounded-2xl p-6 w-full max-w-2xl my-8"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="font-display text-xl text-[var(--forest)]">
+                        {editingThankYouPage?.id ? 'Edit Thank You Page' : 'Create Thank You Page'}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setEditingThankYouPage(null);
+                          setIsCreatingThankYouPage(false);
+                        }}
+                        className="p-2 hover:bg-gray-100 rounded-lg"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Page Name</label>
+                          <input
+                            type="text"
+                            value={editingThankYouPage?.name || ''}
+                            onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, name: e.target.value })}
+                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            placeholder="e.g., Main Thank You"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Slug</label>
+                          <input
+                            type="text"
+                            value={editingThankYouPage?.slug || ''}
+                            onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                            placeholder="e.g., main-thank-you"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Client</label>
+                        <select
+                          value={editingThankYouPage?.client_id || ''}
+                          onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, client_id: e.target.value || null })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                        >
+                          <option value="">No client</option>
+                          {clients.filter(c => c.active).map((client) => (
+                            <option key={client.id} value={client.id}>{client.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Headline</label>
+                        <input
+                          type="text"
+                          value={editingThankYouPage?.headline || ''}
+                          onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, headline: e.target.value })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                          placeholder="Thank You!"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Subheadline</label>
+                        <input
+                          type="text"
+                          value={editingThankYouPage?.subheadline || ''}
+                          onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, subheadline: e.target.value })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                          placeholder="Your submission has been received."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Body Text (optional)</label>
+                        <textarea
+                          value={editingThankYouPage?.body_text || ''}
+                          onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, body_text: e.target.value || null })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                          rows={3}
+                          placeholder="Additional message or instructions..."
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Theme</label>
+                          <select
+                            value={editingThankYouPage?.theme || 'dark'}
+                            onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, theme: e.target.value as 'light' | 'dark' })}
+                            className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                          >
+                            <option value="dark">Dark</option>
+                            <option value="light">Light</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--forest)] mb-1">Background Color</label>
+                          <input
+                            type="color"
+                            value={editingThankYouPage?.background_color || '#1a1a2e'}
+                            onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, background_color: e.target.value })}
+                            className="w-full h-12 rounded-xl border-2 border-[var(--sage)]/30"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Background Image URL</label>
+                        <input
+                          type="text"
+                          value={editingThankYouPage?.background_image || ''}
+                          onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, background_image: e.target.value || null })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                          placeholder="https://..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--forest)] mb-1">Video URL (optional)</label>
+                        <input
+                          type="text"
+                          value={editingThankYouPage?.video_url || ''}
+                          onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, video_url: e.target.value || null })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                          placeholder="https://..."
+                        />
+                      </div>
+
+                      <div className="border-t border-gray-100 pt-4">
+                        <h4 className="font-medium text-[var(--forest)] mb-3">CTA Button (optional)</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Button Text</label>
+                            <input
+                              type="text"
+                              value={editingThankYouPage?.cta_text || ''}
+                              onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, cta_text: e.target.value || null })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                              placeholder="e.g., View Deals"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--forest)] mb-1">Button URL</label>
+                            <input
+                              type="text"
+                              value={editingThankYouPage?.cta_url || ''}
+                              onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, cta_url: e.target.value || null })}
+                              className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                              placeholder="https://..."
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-6 pt-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editingThankYouPage?.show_logo ?? true}
+                            onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, show_logo: e.target.checked })}
+                            className="w-5 h-5 rounded border-[var(--sage)] text-[var(--primary)] focus:ring-[var(--primary)]"
+                          />
+                          <span className="text-sm font-medium text-[var(--forest)]">Show Client Logo</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editingThankYouPage?.active ?? true}
+                            onChange={(e) => setEditingThankYouPage({ ...editingThankYouPage!, active: e.target.checked })}
+                            className="w-5 h-5 rounded border-[var(--sage)] text-[var(--primary)] focus:ring-[var(--primary)]"
+                          />
+                          <span className="text-sm font-medium text-[var(--forest)]">Active</span>
+                        </label>
+                      </div>
+
+                      <button
+                        onClick={async () => {
+                          if (!editingThankYouPage?.name || !editingThankYouPage?.slug) {
+                            showMessage('error', 'Name and slug are required');
+                            return;
+                          }
+                          setLoading(true);
+                          try {
+                            const response = await fetch('/api/thank-you-pages', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${authToken}`,
+                              },
+                              body: JSON.stringify(editingThankYouPage),
+                            });
+                            if (response.ok) {
+                              showMessage('success', editingThankYouPage.id ? 'Page updated!' : 'Page created!');
+                              setEditingThankYouPage(null);
+                              setIsCreatingThankYouPage(false);
+                              loadData(authToken);
+                            } else {
+                              showMessage('error', 'Failed to save page');
+                            }
+                          } catch {
+                            showMessage('error', 'Failed to save page');
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={loading}
+                        className="w-full btn-primary py-3 rounded-xl text-white font-medium flex items-center justify-center gap-2"
+                      >
+                        {loading ? (
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <Save className="w-5 h-5" />
+                            Save Page
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Thank You Pages List */}
+            <div className="grid gap-4">
+              {thankYouPages.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-2xl">
+                  <Heart className="w-12 h-12 text-[var(--sage)] mx-auto mb-4" />
+                  <p className="text-[var(--forest)]/60">No thank you pages yet. Create your first one!</p>
+                </div>
+              ) : (
+                thankYouPages.map((page) => {
+                  const client = clients.find(c => c.id === page.client_id);
+                  const linkedLandingPages = landingPages.filter(lp => lp.thank_you_page_id === page.id);
+                  return (
+                    <div
+                      key={page.id}
+                      className={`bg-white rounded-2xl p-5 ${!page.active ? 'opacity-60' : ''}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-pink-100 flex items-center justify-center">
+                          <Heart className="w-6 h-6 text-pink-600" />
+                        </div>
+
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-semibold text-[var(--forest)]">{page.name}</h3>
+                            <span className="text-xs text-[var(--forest)]/50">/{page.slug}</span>
+                            {!page.active && (
+                              <span className="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-600">Inactive</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 mt-1 text-sm text-[var(--forest)]/60">
+                            <span>{client?.name || 'No client'}</span>
+                            <span className="text-[var(--forest)]/40">|</span>
+                            <span>{linkedLandingPages.length} linked landing page{linkedLandingPages.length !== 1 ? 's' : ''}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`/thank-you/${page.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 hover:bg-[var(--sage-light)] rounded-lg transition-colors"
+                            title="Preview"
+                          >
+                            <ExternalLink className="w-5 h-5 text-[var(--forest)]" />
+                          </a>
+                          <button
+                            onClick={() => setEditingThankYouPage(page)}
+                            className="p-2 hover:bg-[var(--sage-light)] rounded-lg transition-colors"
+                          >
+                            <Edit2 className="w-5 h-5 text-[var(--forest)]" />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm('Delete this thank you page?')) return;
+                              try {
+                                const response = await fetch(`/api/thank-you-pages?id=${page.id}`, {
+                                  method: 'DELETE',
+                                  headers: { Authorization: `Bearer ${authToken}` },
+                                });
+                                if (response.ok) {
+                                  showMessage('success', 'Page deleted!');
+                                  loadData(authToken);
+                                }
+                              } catch {
+                                showMessage('error', 'Failed to delete page');
+                              }
+                            }}
+                            className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-5 h-5 text-red-500" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Media Library Tab */}
+        {activeTab === 'media' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="font-display text-2xl text-[var(--forest)]">Media Library</h2>
+            </div>
+
+            <p className="text-sm text-[var(--forest)]/70">
+              Upload and manage images and videos for each client. Media is organized by client for easy access when building pages.
+            </p>
+
+            {/* Client Selector */}
+            <div className="bg-white rounded-2xl p-5">
+              <label className="block text-sm font-medium text-[var(--forest)] mb-2">Select Client</label>
+              <select
+                value={selectedMediaClient}
+                onChange={(e) => {
+                  setSelectedMediaClient(e.target.value);
+                  if (e.target.value) {
+                    // Load media for this client
+                    fetch(`/api/client-media?client_id=${e.target.value}`, {
+                      headers: { Authorization: `Bearer ${authToken}` },
+                    })
+                      .then(res => res.json())
+                      .then(data => setClientMedia(data.media || []))
+                      .catch(() => setClientMedia([]));
+                  } else {
+                    setClientMedia([]);
+                  }
+                }}
+                className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+              >
+                <option value="">Select a client...</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>{client.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {selectedMediaClient && (
+              <>
+                {/* Upload Section */}
+                <div className="bg-white rounded-2xl p-5">
+                  <h3 className="font-medium text-[var(--forest)] mb-4">Upload Media</h3>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--forest)] mb-1">Folder</label>
+                      <select
+                        value={mediaFolder}
+                        onChange={(e) => setMediaFolder(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-[var(--sage)]/30 focus:border-[var(--primary)]"
+                      >
+                        <option value="general">General</option>
+                        <option value="landing">Landing Pages</option>
+                        <option value="thankyou">Thank You Pages</option>
+                        <option value="logo">Logos</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--forest)] mb-1">Upload File</label>
+                      <label className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-[var(--sage-light)] hover:bg-[var(--sage)] rounded-xl cursor-pointer transition-colors">
+                        {uploadingMedia ? (
+                          <div className="w-5 h-5 border-2 border-[var(--primary)]/30 border-t-[var(--primary)] rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <Upload className="w-5 h-5" />
+                            Choose File
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*,video/*,.gif"
+                          className="hidden"
+                          disabled={uploadingMedia}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            const client = clients.find(c => c.id === selectedMediaClient);
+                            if (!client) return;
+
+                            setUploadingMedia(true);
+                            try {
+                              const formData = new FormData();
+                              formData.append('file', file);
+                              formData.append('client_id', selectedMediaClient);
+                              formData.append('client_slug', client.slug);
+                              formData.append('folder', mediaFolder);
+
+                              const response = await fetch('/api/client-media', {
+                                method: 'POST',
+                                headers: { Authorization: `Bearer ${authToken}` },
+                                body: formData,
+                              });
+
+                              if (response.ok) {
+                                showMessage('success', 'Media uploaded!');
+                                // Reload media
+                                const mediaRes = await fetch(`/api/client-media?client_id=${selectedMediaClient}`, {
+                                  headers: { Authorization: `Bearer ${authToken}` },
+                                });
+                                const data = await mediaRes.json();
+                                setClientMedia(data.media || []);
+                              } else {
+                                const error = await response.json();
+                                showMessage('error', error.error || 'Failed to upload');
+                              }
+                            } catch {
+                              showMessage('error', 'Failed to upload media');
+                            } finally {
+                              setUploadingMedia(false);
+                              e.target.value = '';
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Media Grid */}
+                <div className="bg-white rounded-2xl p-5">
+                  <h3 className="font-medium text-[var(--forest)] mb-4">
+                    Media Files ({clientMedia.length})
+                  </h3>
+                  {clientMedia.length === 0 ? (
+                    <div className="text-center py-12">
+                      <FolderOpen className="w-12 h-12 text-[var(--sage)] mx-auto mb-4" />
+                      <p className="text-[var(--forest)]/60">No media uploaded yet for this client.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {clientMedia.map((media) => (
+                        <div key={media.id} className="relative group">
+                          <div className="aspect-video rounded-xl overflow-hidden bg-gray-100">
+                            {media.file_type === 'video' || media.file_type === 'gif' ? (
+                              <video
+                                src={media.file_url}
+                                className="w-full h-full object-cover"
+                                muted
+                                loop
+                                onMouseOver={(e) => (e.target as HTMLVideoElement).play()}
+                                onMouseOut={(e) => (e.target as HTMLVideoElement).pause()}
+                              />
+                            ) : (
+                              <img
+                                src={media.file_url}
+                                alt={media.file_name}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                          </div>
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(media.file_url);
+                                showMessage('success', 'URL copied!');
+                              }}
+                              className="p-2 bg-white rounded-lg hover:bg-gray-100"
+                              title="Copy URL"
+                            >
+                              <Link2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!confirm('Delete this file?')) return;
+                                try {
+                                  const response = await fetch(`/api/client-media?id=${media.id}`, {
+                                    method: 'DELETE',
+                                    headers: { Authorization: `Bearer ${authToken}` },
+                                  });
+                                  if (response.ok) {
+                                    showMessage('success', 'File deleted!');
+                                    setClientMedia(clientMedia.filter(m => m.id !== media.id));
+                                  }
+                                } catch {
+                                  showMessage('error', 'Failed to delete');
+                                }
+                              }}
+                              className="p-2 bg-white rounded-lg hover:bg-red-100"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                          <p className="text-xs text-[var(--forest)]/60 mt-1 truncate">{media.file_name}</p>
+                          <p className="text-xs text-[var(--forest)]/40">{media.folder}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
 

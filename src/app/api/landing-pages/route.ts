@@ -3,6 +3,7 @@ import {
   getLandingPages,
   getLandingPagesByClient,
   getLandingPageBySlug,
+  getLandingPageBySlugWithRelations,
   saveLandingPage,
   deleteLandingPage,
   selectRandomLandingPage,
@@ -36,12 +37,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (action === 'by-slug') {
-      // Get a specific landing page by slug
+      // Get a specific landing page by slug with client and thank you page data
       const slug = searchParams.get('slug');
       if (!slug) {
         return NextResponse.json({ error: 'Slug required' }, { status: 400 });
       }
-      const page = await getLandingPageBySlug(slug);
+      const page = await getLandingPageBySlugWithRelations(slug);
       return NextResponse.json({ page });
     }
 

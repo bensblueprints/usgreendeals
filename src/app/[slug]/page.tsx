@@ -16,6 +16,18 @@ declare global {
   }
 }
 
+interface Client {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+}
+
+interface ThankYouPageRef {
+  id: string;
+  slug: string;
+}
+
 interface LandingPage {
   id: string;
   name: string;
@@ -31,6 +43,10 @@ interface LandingPage {
   collect_first_name: boolean;
   client_id: string | null;
   klaviyo_list_id: string | null;
+  show_logo: boolean;
+  thank_you_page_id: string | null;
+  client?: Client | null;
+  thank_you_page?: ThankYouPageRef | null;
 }
 
 interface UTMData {
@@ -146,13 +162,18 @@ export default function SlugLandingPage() {
         });
       }
 
-      // Redirect with subscriber ID and landing page ID for delayed Klaviyo sync
+      // Redirect to custom thank you page if set, otherwise default
       const params = new URLSearchParams({
         zip: zipCode,
         ...(data.subscriberId && { sid: data.subscriberId }),
         ...(data.landingPageId && { lpid: data.landingPageId }),
       });
-      window.location.href = `/thank-you?${params.toString()}`;
+
+      if (landingPage?.thank_you_page?.slug) {
+        window.location.href = `/thank-you/${landingPage.thank_you_page.slug}?${params.toString()}`;
+      } else {
+        window.location.href = `/thank-you?${params.toString()}`;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to subscribe');
       setIsLoading(false);
@@ -194,6 +215,9 @@ export default function SlugLandingPage() {
       isLoading={isLoading}
       error={error}
       handleSubmit={handleSubmit}
+      showLogo={landingPage?.show_logo || false}
+      clientLogo={landingPage?.client?.logo_url || null}
+      clientName={landingPage?.client?.name || null}
     />;
   }
 
@@ -230,14 +254,22 @@ export default function SlugLandingPage() {
           transition={{ duration: 0.8 }}
           className="mb-8"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--moss)] flex items-center justify-center shadow-lg">
-              <Leaf className="w-6 h-6 text-white" />
+          {landingPage?.show_logo && landingPage?.client?.logo_url ? (
+            <img
+              src={landingPage.client.logo_url}
+              alt={landingPage.client.name || 'Logo'}
+              className="h-16 md:h-20 w-auto object-contain"
+            />
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--moss)] flex items-center justify-center shadow-lg">
+                <Leaf className="w-6 h-6 text-white" />
+              </div>
+              <span className="font-display text-2xl md:text-3xl font-semibold text-[var(--forest)]">
+                US Green Deals
+              </span>
             </div>
-            <span className="font-display text-2xl md:text-3xl font-semibold text-[var(--forest)]">
-              US Green Deals
-            </span>
-          </div>
+          )}
         </motion.div>
 
         <motion.div
@@ -424,6 +456,9 @@ function DarkThemePage({
   isLoading,
   error,
   handleSubmit,
+  showLogo,
+  clientLogo,
+  clientName,
 }: {
   landingPage: LandingPage | null;
   email: string;
@@ -435,6 +470,9 @@ function DarkThemePage({
   isLoading: boolean;
   error: string;
   handleSubmit: (e: React.FormEvent) => void;
+  showLogo: boolean;
+  clientLogo: string | null;
+  clientName: string | null;
 }) {
   const bgImage = landingPage?.background_image || '/gorilla-bg.png';
   const videoUrl = landingPage?.video_url;
@@ -485,14 +523,22 @@ function DarkThemePage({
           transition={{ duration: 0.8 }}
           className="mb-8"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-green-400 to-purple-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
-              <Leaf className="w-7 h-7 text-white" />
+          {showLogo && clientLogo ? (
+            <img
+              src={clientLogo}
+              alt={clientName || 'Logo'}
+              className="h-16 md:h-20 w-auto object-contain"
+            />
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-green-400 to-purple-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                <Leaf className="w-7 h-7 text-white" />
+              </div>
+              <span className="font-display text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
+                US Green Deals
+              </span>
             </div>
-            <span className="font-display text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-              US Green Deals
-            </span>
-          </div>
+          )}
         </motion.div>
 
         <motion.div

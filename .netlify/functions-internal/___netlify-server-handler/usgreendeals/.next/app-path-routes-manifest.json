@@ -4,6 +4,8 @@
   "/_not-found/page": "/_not-found",
   "/admin/page": "/admin",
   "/api/admin/route": "/api/admin",
+  "/api/client-logos/route": "/api/client-logos",
+  "/api/client-media/route": "/api/client-media",
   "/api/clients/route": "/api/clients",
   "/api/deals/route": "/api/deals",
   "/api/debug/klaviyo/route": "/api/debug/klaviyo",
@@ -15,10 +17,13 @@
   "/api/settings/route": "/api/settings",
   "/api/subscribe/route": "/api/subscribe",
   "/api/subscribers/route": "/api/subscribers",
+  "/api/thank-you-pages/route": "/api/thank-you-pages",
   "/api/videos/route": "/api/videos",
   "/deals/page": "/deals",
   "/favicon.ico/route": "/favicon.ico",
   "/legality/page": "/legality",
   "/page": "/",
-  "/thank-you/page": "/thank-you"
+  "/thank-you/[slug]/page": "/thank-you/[slug]",
+  "/thank-you/page": "/thank-you",
+  "/trust-fall/page": "/trust-fall"
 }

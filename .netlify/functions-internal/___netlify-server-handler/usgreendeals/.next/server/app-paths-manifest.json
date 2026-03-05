@@ -4,6 +4,8 @@
   "/_not-found/page": "app/_not-found/page.js",
   "/admin/page": "app/admin/page.js",
   "/api/admin/route": "app/api/admin/route.js",
+  "/api/client-logos/route": "app/api/client-logos/route.js",
+  "/api/client-media/route": "app/api/client-media/route.js",
   "/api/clients/route": "app/api/clients/route.js",
   "/api/deals/route": "app/api/deals/route.js",
   "/api/debug/klaviyo/route": "app/api/debug/klaviyo/route.js",
@@ -15,10 +17,13 @@
   "/api/settings/route": "app/api/settings/route.js",
   "/api/subscribe/route": "app/api/subscribe/route.js",
   "/api/subscribers/route": "app/api/subscribers/route.js",
+  "/api/thank-you-pages/route": "app/api/thank-you-pages/route.js",
   "/api/videos/route": "app/api/videos/route.js",
   "/deals/page": "app/deals/page.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/legality/page": "app/legality/page.js",
   "/page": "app/page.js",
-  "/thank-you/page": "app/thank-you/page.js"
+  "/thank-you/[slug]/page": "app/thank-you/[slug]/page.js",
+  "/thank-you/page": "app/thank-you/page.js",
+  "/trust-fall/page": "app/trust-fall/page.js"
 }

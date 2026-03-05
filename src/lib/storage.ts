@@ -48,8 +48,46 @@ export interface LandingPage {
   is_homepage: boolean;
   client_id: string | null;
   klaviyo_list_id: string | null;
+  show_logo: boolean;
+  thank_you_page_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ThankYouPage {
+  id: string;
+  name: string;
+  slug: string;
+  client_id: string | null;
+  headline: string;
+  subheadline: string;
+  body_text: string | null;
+  background_image: string | null;
+  background_color: string;
+  video_url: string | null;
+  theme: 'light' | 'dark';
+  custom_css: string | null;
+  show_logo: boolean;
+  cta_text: string | null;
+  cta_url: string | null;
+  cta_style: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientMedia {
+  id: string;
+  client_id: string;
+  file_name: string;
+  file_url: string;
+  file_type: 'image' | 'video' | 'gif';
+  file_size: number | null;
+  mime_type: string | null;
+  folder: string;
+  alt_text: string | null;
+  description: string | null;
+  uploaded_at: string;
 }
 
 export interface Client {
@@ -458,6 +496,38 @@ export async function getLandingPageBySlug(slug: string): Promise<LandingPage | 
   return data;
 }
 
+// Extended landing page with related data for frontend
+export interface LandingPageWithRelations extends LandingPage {
+  client?: Client | null;
+  thank_you_page?: ThankYouPage | null;
+}
+
+export async function getLandingPageBySlugWithRelations(slug: string): Promise<LandingPageWithRelations | null> {
+  const { data, error } = await supabaseAdmin
+    .from('landing_pages')
+    .select(`
+      *,
+      clients:client_id (*),
+      thank_you_pages:thank_you_page_id (*)
+    `)
+    .eq('slug', slug)
+    .single();
+
+  if (error) {
+    console.error('Error fetching landing page with relations:', error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  // Transform to match our interface
+  return {
+    ...data,
+    client: data.clients || null,
+    thank_you_page: data.thank_you_pages || null,
+  };
+}
+
 export async function getLandingPageById(id: string): Promise<LandingPage | null> {
   const { data, error } = await supabaseAdmin
     .from('landing_pages')
@@ -493,6 +563,8 @@ export async function saveLandingPage(page: Partial<LandingPage> & { id?: string
         collect_first_name: page.collect_first_name ?? false,
         client_id: page.client_id || null,
         klaviyo_list_id: page.klaviyo_list_id || null,
+        show_logo: page.show_logo ?? false,
+        thank_you_page_id: page.thank_you_page_id || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', page.id)
@@ -526,6 +598,8 @@ export async function saveLandingPage(page: Partial<LandingPage> & { id?: string
       is_homepage: page.is_homepage ?? false,
       client_id: page.client_id || null,
       klaviyo_list_id: page.klaviyo_list_id || null,
+      show_logo: page.show_logo ?? false,
+      thank_you_page_id: page.thank_you_page_id || null,
     })
     .select()
     .single();

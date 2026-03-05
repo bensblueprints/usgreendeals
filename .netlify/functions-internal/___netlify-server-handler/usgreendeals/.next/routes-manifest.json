@@ -22,6 +22,14 @@
   },
   "dynamicRoutes": [
     {
+      "page": "/thank-you/[slug]",
+      "regex": "^/thank\\-you/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/thank\\-you/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
       "page": "/[slug]",
       "regex": "^/([^/]+?)(?:/)?$",
       "routeKeys": {
@@ -60,6 +68,18 @@
       "regex": "^/api/admin(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/admin(?:/)?$"
+    },
+    {
+      "page": "/api/client-logos",
+      "regex": "^/api/client\\-logos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/client\\-logos(?:/)?$"
+    },
+    {
+      "page": "/api/client-media",
+      "regex": "^/api/client\\-media(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/client\\-media(?:/)?$"
     },
     {
       "page": "/api/clients",
@@ -128,6 +148,12 @@
       "namedRegex": "^/api/subscribers(?:/)?$"
     },
     {
+      "page": "/api/thank-you-pages",
+      "regex": "^/api/thank\\-you\\-pages(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/thank\\-you\\-pages(?:/)?$"
+    },
+    {
       "page": "/api/videos",
       "regex": "^/api/videos(?:/)?$",
       "routeKeys": {},
@@ -156,6 +182,12 @@
       "regex": "^/thank\\-you(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/thank\\-you(?:/)?$"
+    },
+    {
+      "page": "/trust-fall",
+      "regex": "^/trust\\-fall(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/trust\\-fall(?:/)?$"
     }
   ],
   "dataRoutes": [],
