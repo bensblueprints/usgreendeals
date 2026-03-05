@@ -2315,6 +2315,15 @@ export default function AdminPage() {
                               Set Home
                             </button>
                           )}
+                          <a
+                            href={`/${page.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                            title="Preview page"
+                          >
+                            <ExternalLink className="w-5 h-5 text-blue-600" />
+                          </a>
                           <button
                             onClick={() => setEditingPage(page)}
                             className="p-2 hover:bg-[var(--sage-light)] rounded-lg transition-colors"
