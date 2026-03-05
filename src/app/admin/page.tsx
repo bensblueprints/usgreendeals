@@ -43,6 +43,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Rocket,
+  Sparkles,
 } from 'lucide-react';
 
 interface Deal {
@@ -1719,6 +1720,15 @@ export default function AdminPage() {
                     </option>
                   ))}
                 </select>
+                <a
+                  href="https://app.tryholo.ai/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-6 py-3 rounded-xl font-medium flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 transition-all"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  Design with Try Holo
+                </a>
                 <button
                   onClick={() => {
                     if (clients.length === 0) {
@@ -2573,33 +2583,44 @@ export default function AdminPage() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="font-display text-2xl text-[var(--forest)]">Thank You Pages</h2>
-              <button
-                onClick={() => {
-                  setIsCreatingThankYouPage(true);
-                  setEditingThankYouPage({
-                    name: '',
-                    slug: '',
-                    client_id: null,
-                    headline: 'Thank You!',
-                    subheadline: 'Your submission has been received.',
-                    body_text: null,
-                    background_image: null,
-                    background_color: '#1a1a2e',
-                    video_url: null,
-                    theme: 'dark',
-                    custom_css: null,
-                    show_logo: true,
-                    cta_text: null,
-                    cta_url: null,
-                    cta_style: 'primary',
-                    active: true,
-                  });
-                }}
-                className="btn-primary px-6 py-3 rounded-xl text-white font-medium flex items-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                Create Thank You Page
-              </button>
+              <div className="flex items-center gap-3">
+                <a
+                  href="https://app.tryholo.ai/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-6 py-3 rounded-xl font-medium flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 transition-all"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  Design with Try Holo
+                </a>
+                <button
+                  onClick={() => {
+                    setIsCreatingThankYouPage(true);
+                    setEditingThankYouPage({
+                      name: '',
+                      slug: '',
+                      client_id: null,
+                      headline: 'Thank You!',
+                      subheadline: 'Your submission has been received.',
+                      body_text: null,
+                      background_image: null,
+                      background_color: '#1a1a2e',
+                      video_url: null,
+                      theme: 'dark',
+                      custom_css: null,
+                      show_logo: true,
+                      cta_text: null,
+                      cta_url: null,
+                      cta_style: 'primary',
+                      active: true,
+                    });
+                  }}
+                  className="btn-primary px-6 py-3 rounded-xl text-white font-medium flex items-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  Create Thank You Page
+                </button>
+              </div>
             </div>
 
             <p className="text-sm text-[var(--forest)]/70">
