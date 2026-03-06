@@ -80,6 +80,17 @@ export default function SlugLandingPage() {
   const [notFound, setNotFound] = useState(false);
   const [utmData, setUtmData] = useState<UTMData>({});
 
+  // Video sound toggle state
+  const lightVideoRef = useRef<HTMLVideoElement>(null);
+  const [lightVideoMuted, setLightVideoMuted] = useState(true);
+
+  const toggleLightVideoSound = () => {
+    if (lightVideoRef.current) {
+      lightVideoRef.current.muted = !lightVideoRef.current.muted;
+      setLightVideoMuted(lightVideoRef.current.muted);
+    }
+  };
+
   useEffect(() => {
     setMounted(true);
     // Capture UTM params from URL
@@ -243,15 +254,6 @@ export default function SlugLandingPage() {
   }
 
   const isDark = landingPage?.theme === 'dark';
-  const lightVideoRef = useRef<HTMLVideoElement>(null);
-  const [lightVideoMuted, setLightVideoMuted] = useState(true);
-
-  const toggleLightVideoSound = () => {
-    if (lightVideoRef.current) {
-      lightVideoRef.current.muted = !lightVideoRef.current.muted;
-      setLightVideoMuted(lightVideoRef.current.muted);
-    }
-  };
 
   if (isDark) {
     return <DarkThemePage

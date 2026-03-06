@@ -50,6 +50,17 @@ export default function LandingPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [utmData, setUtmData] = useState<UTMData>({});
 
+  // Video sound toggle state
+  const lightVideoRef = useRef<HTMLVideoElement>(null);
+  const [lightVideoMuted, setLightVideoMuted] = useState(true);
+
+  const toggleLightVideoSound = () => {
+    if (lightVideoRef.current) {
+      lightVideoRef.current.muted = !lightVideoRef.current.muted;
+      setLightVideoMuted(lightVideoRef.current.muted);
+    }
+  };
+
   useEffect(() => {
     setMounted(true);
     // Capture UTM params from URL
@@ -197,15 +208,6 @@ export default function LandingPage() {
 
   // Original light theme
   const lightVideoUrl = landingPage?.video_url;
-  const lightVideoRef = useRef<HTMLVideoElement>(null);
-  const [lightVideoMuted, setLightVideoMuted] = useState(true);
-
-  const toggleLightVideoSound = () => {
-    if (lightVideoRef.current) {
-      lightVideoRef.current.muted = !lightVideoRef.current.muted;
-      setLightVideoMuted(lightVideoRef.current.muted);
-    }
-  };
 
   return (
     <div className="min-h-screen gradient-mesh botanical-pattern relative overflow-hidden">
