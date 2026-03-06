@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Leaf, Mail, CheckCircle, ArrowRight, Sparkles, Shield, MapPin } from 'lucide-react';
+import { Leaf, Mail, CheckCircle, ArrowRight, Sparkles, Shield, MapPin, Volume2, VolumeX } from 'lucide-react';
 
 // Declare gtag for TypeScript
 declare global {
@@ -197,6 +197,15 @@ export default function LandingPage() {
 
   // Original light theme
   const lightVideoUrl = landingPage?.video_url;
+  const lightVideoRef = useRef<HTMLVideoElement>(null);
+  const [lightVideoMuted, setLightVideoMuted] = useState(true);
+
+  const toggleLightVideoSound = () => {
+    if (lightVideoRef.current) {
+      lightVideoRef.current.muted = !lightVideoRef.current.muted;
+      setLightVideoMuted(lightVideoRef.current.muted);
+    }
+  };
 
   return (
     <div className="min-h-screen gradient-mesh botanical-pattern relative overflow-hidden">
@@ -204,6 +213,7 @@ export default function LandingPage() {
       {lightVideoUrl && (
         <div className="absolute inset-0 z-0">
           <video
+            ref={lightVideoRef}
             autoPlay
             muted
             loop
@@ -213,6 +223,18 @@ export default function LandingPage() {
             <source src={lightVideoUrl} type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-[var(--background)]/80" />
+          {/* Sound Toggle Button */}
+          <button
+            onClick={toggleLightVideoSound}
+            className="absolute bottom-6 right-6 z-20 p-3 rounded-full bg-white/90 hover:bg-white shadow-lg transition-all hover:scale-105"
+            aria-label={lightVideoMuted ? 'Unmute video' : 'Mute video'}
+          >
+            {lightVideoMuted ? (
+              <VolumeX className="w-6 h-6 text-[var(--forest)]" />
+            ) : (
+              <Volume2 className="w-6 h-6 text-[var(--forest)]" />
+            )}
+          </button>
         </div>
       )}
       {/* Floating organic shapes */}
@@ -471,6 +493,15 @@ function DarkThemePage({
 }) {
   const bgImage = landingPage?.background_image || '/gorilla-bg.png';
   const videoUrl = landingPage?.video_url;
+  const darkVideoRef = useRef<HTMLVideoElement>(null);
+  const [darkVideoMuted, setDarkVideoMuted] = useState(true);
+
+  const toggleDarkVideoSound = () => {
+    if (darkVideoRef.current) {
+      darkVideoRef.current.muted = !darkVideoRef.current.muted;
+      setDarkVideoMuted(darkVideoRef.current.muted);
+    }
+  };
 
   return (
     <div
@@ -486,6 +517,7 @@ function DarkThemePage({
       {videoUrl && (
         <div className="absolute inset-0 z-0">
           <video
+            ref={darkVideoRef}
             autoPlay
             muted
             loop
@@ -494,6 +526,18 @@ function DarkThemePage({
           >
             <source src={videoUrl} type="video/mp4" />
           </video>
+          {/* Sound Toggle Button */}
+          <button
+            onClick={toggleDarkVideoSound}
+            className="absolute bottom-6 right-6 z-20 p-3 rounded-full bg-black/50 hover:bg-black/70 border border-white/20 shadow-lg transition-all hover:scale-105"
+            aria-label={darkVideoMuted ? 'Unmute video' : 'Mute video'}
+          >
+            {darkVideoMuted ? (
+              <VolumeX className="w-6 h-6 text-white" />
+            ) : (
+              <Volume2 className="w-6 h-6 text-green-400" />
+            )}
+          </button>
         </div>
       )}
       {/* Dark overlay for readability */}

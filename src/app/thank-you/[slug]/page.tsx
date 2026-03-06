@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Leaf, CheckCircle, MapPin, Mail, Sparkles, ExternalLink } from 'lucide-react';
+import { Leaf, CheckCircle, MapPin, Mail, Sparkles, ExternalLink, Volume2, VolumeX } from 'lucide-react';
 import Link from 'next/link';
 
 // Declare gtag and fbq for TypeScript
@@ -67,6 +67,24 @@ function ThankYouContent() {
   const hasTracked = useRef(false);
   const hasSynced = useRef(false);
   const hasPixelFired = useRef(false);
+  const darkVideoRef = useRef<HTMLVideoElement>(null);
+  const lightVideoRef = useRef<HTMLVideoElement>(null);
+  const [darkVideoMuted, setDarkVideoMuted] = useState(true);
+  const [lightVideoMuted, setLightVideoMuted] = useState(true);
+
+  const toggleDarkVideoSound = () => {
+    if (darkVideoRef.current) {
+      darkVideoRef.current.muted = !darkVideoRef.current.muted;
+      setDarkVideoMuted(darkVideoRef.current.muted);
+    }
+  };
+
+  const toggleLightVideoSound = () => {
+    if (lightVideoRef.current) {
+      lightVideoRef.current.muted = !lightVideoRef.current.muted;
+      setLightVideoMuted(lightVideoRef.current.muted);
+    }
+  };
 
   // Initialize Facebook Pixel and fire CompleteRegistration when page loads
   useEffect(() => {
@@ -238,9 +256,21 @@ function ThankYouContent() {
       >
         {videoUrl && (
           <div className="absolute inset-0 z-0">
-            <video autoPlay muted loop playsInline className="w-full h-full object-cover">
+            <video ref={darkVideoRef} autoPlay muted loop playsInline className="w-full h-full object-cover">
               <source src={videoUrl} type="video/mp4" />
             </video>
+            {/* Sound Toggle Button */}
+            <button
+              onClick={toggleDarkVideoSound}
+              className="absolute bottom-6 right-6 z-20 p-3 rounded-full bg-black/50 hover:bg-black/70 border border-white/20 shadow-lg transition-all hover:scale-105"
+              aria-label={darkVideoMuted ? 'Unmute video' : 'Mute video'}
+            >
+              {darkVideoMuted ? (
+                <VolumeX className="w-6 h-6 text-white" />
+              ) : (
+                <Volume2 className="w-6 h-6 text-green-400" />
+              )}
+            </button>
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
@@ -420,10 +450,22 @@ function ThankYouContent() {
     <div className="min-h-screen gradient-mesh botanical-pattern relative">
       {videoUrl && (
         <div className="absolute inset-0 z-0">
-          <video autoPlay muted loop playsInline className="w-full h-full object-cover">
+          <video ref={lightVideoRef} autoPlay muted loop playsInline className="w-full h-full object-cover">
             <source src={videoUrl} type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-[var(--background)]/80" />
+          {/* Sound Toggle Button */}
+          <button
+            onClick={toggleLightVideoSound}
+            className="absolute bottom-6 right-6 z-20 p-3 rounded-full bg-white/90 hover:bg-white shadow-lg transition-all hover:scale-105"
+            aria-label={lightVideoMuted ? 'Unmute video' : 'Mute video'}
+          >
+            {lightVideoMuted ? (
+              <VolumeX className="w-6 h-6 text-[var(--forest)]" />
+            ) : (
+              <Volume2 className="w-6 h-6 text-[var(--forest)]" />
+            )}
+          </button>
         </div>
       )}
 

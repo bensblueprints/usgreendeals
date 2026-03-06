@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Leaf, Mail, CheckCircle, ArrowRight, Sparkles, Shield, MapPin } from 'lucide-react';
+import { Leaf, Mail, CheckCircle, ArrowRight, Sparkles, Shield, MapPin, Volume2, VolumeX } from 'lucide-react';
 
 // Declare gtag and fbq for TypeScript
 declare global {
@@ -243,6 +243,15 @@ export default function SlugLandingPage() {
   }
 
   const isDark = landingPage?.theme === 'dark';
+  const lightVideoRef = useRef<HTMLVideoElement>(null);
+  const [lightVideoMuted, setLightVideoMuted] = useState(true);
+
+  const toggleLightVideoSound = () => {
+    if (lightVideoRef.current) {
+      lightVideoRef.current.muted = !lightVideoRef.current.muted;
+      setLightVideoMuted(lightVideoRef.current.muted);
+    }
+  };
 
   if (isDark) {
     return <DarkThemePage
@@ -343,18 +352,30 @@ export default function SlugLandingPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.65 }}
-                  className="mb-6 rounded-2xl overflow-hidden shadow-lg"
+                  className="mb-6 rounded-2xl overflow-hidden shadow-lg relative"
                 >
                   <video
+                    ref={lightVideoRef}
                     autoPlay
                     muted
                     loop
                     playsInline
-                    controls
                     className="w-full h-auto"
                   >
                     <source src={landingPage.video_url} type="video/mp4" />
                   </video>
+                  {/* Sound Toggle Button */}
+                  <button
+                    onClick={toggleLightVideoSound}
+                    className="absolute bottom-3 right-3 p-2 rounded-full bg-white/90 hover:bg-white shadow-lg transition-all hover:scale-105"
+                    aria-label={lightVideoMuted ? 'Unmute video' : 'Mute video'}
+                  >
+                    {lightVideoMuted ? (
+                      <VolumeX className="w-5 h-5 text-[var(--forest)]" />
+                    ) : (
+                      <Volume2 className="w-5 h-5 text-[var(--forest)]" />
+                    )}
+                  </button>
                 </motion.div>
               )}
 
@@ -521,6 +542,15 @@ function DarkThemePage({
 }) {
   const bgImage = landingPage?.background_image || '/gorilla-bg.png';
   const videoUrl = landingPage?.video_url;
+  const darkVideoRef = useRef<HTMLVideoElement>(null);
+  const [darkVideoMuted, setDarkVideoMuted] = useState(true);
+
+  const toggleDarkVideoSound = () => {
+    if (darkVideoRef.current) {
+      darkVideoRef.current.muted = !darkVideoRef.current.muted;
+      setDarkVideoMuted(darkVideoRef.current.muted);
+    }
+  };
 
   return (
     <div
@@ -618,18 +648,30 @@ function DarkThemePage({
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.65 }}
-                  className="mb-6 rounded-2xl overflow-hidden shadow-lg border border-white/20"
+                  className="mb-6 rounded-2xl overflow-hidden shadow-lg border border-white/20 relative"
                 >
                   <video
+                    ref={darkVideoRef}
                     autoPlay
                     muted
                     loop
                     playsInline
-                    controls
                     className="w-full h-auto"
                   >
                     <source src={videoUrl} type="video/mp4" />
                   </video>
+                  {/* Sound Toggle Button */}
+                  <button
+                    onClick={toggleDarkVideoSound}
+                    className="absolute bottom-3 right-3 p-2 rounded-full bg-black/50 hover:bg-black/70 border border-white/20 shadow-lg transition-all hover:scale-105"
+                    aria-label={darkVideoMuted ? 'Unmute video' : 'Mute video'}
+                  >
+                    {darkVideoMuted ? (
+                      <VolumeX className="w-5 h-5 text-white" />
+                    ) : (
+                      <Volume2 className="w-5 h-5 text-green-400" />
+                    )}
+                  </button>
                 </motion.div>
               )}
 
